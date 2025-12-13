@@ -1,6 +1,7 @@
 {
   "name": "my-app",
   "version": "0.1.0",
+  "description": "Todo app with Supabase",
   "private": true,
   "scripts": {
     "dev": "next dev",
