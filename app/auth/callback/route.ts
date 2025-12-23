@@ -39,14 +39,14 @@ export async function GET(request: Request) {
 
     if (error) {
       console.error('Auth error:', error)
-      return NextResponse.redirect(`${requestUrl.origin}/signin`)
+      return NextResponse.redirect(`${requestUrl.origin}/todos`);
     }
 
     console.log('✅ Session created successfully')
     
     // Directly redirect to profile-setup for now
-    return NextResponse.redirect(`${requestUrl.origin}/profile-setup`)
+    return NextResponse.redirect(`${requestUrl.origin}/todos`);
   }
 
-  return NextResponse.redirect(`${requestUrl.origin}/signin`)
+  return NextResponse.redirect(`${requestUrl.origin}/todos`);
 }
