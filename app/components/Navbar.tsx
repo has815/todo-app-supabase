@@ -1,23 +1,61 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { LogOut, Check } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase';  // ✅ Fixed
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase";
+import { LogOut, Check } from "lucide-react";
 
-const supabase = createClient();
+export default function Navbar() {
+  const [user, setUser] = useState<any>(null);
+  const [profile, setProfile] = useState<any>(null);
+  const [showMenu, setShowMenu] = useState(false);
+  const router = useRouter();
+  const supabase = createClient();
 
-interface NavbarProps {
-  user: {
-    email: string;
-    picture: string;
-    name: string;
-    job: string;
-  } | null;
-  onLogout: () => void;
-}
+  useEffect(() => {
+    getUser();
+  }, []);
 
-function Navbar({ user, onLogout }: NavbarProps) {
+  const getUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (user) {
+      setUser(user);
+      
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+      
+      setProfile(profileData);
+    }
+  };
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    router.push("/signin");
+  };
+
+  const getAvatarContent = () => {
+    if (user?.user_metadata?.avatar_url) {
+      return (
+        <img
+          src={user.user_metadata.avatar_url}
+          alt="Profile"
+          className="w-10 h-10 rounded-full object-cover"
+        />
+      );
+    }
+    
+    const initial = profile?.full_name?.[0] || user?.email?.[0] || "U";
+    return (
+      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-lg">
+        {initial.toUpperCase()}
+      </div>
+    );
+  };
+
   if (!user) return null;
 
   return (
@@ -35,18 +73,14 @@ function Navbar({ user, onLogout }: NavbarProps) {
           
           <div className="flex items-center gap-4">
             <div className="text-right hidden sm:block">
-              <p className="text-sm font-medium text-white">{user.name}</p>
-              <p className="text-xs text-purple-300">{user.job}</p>
+              <p className="text-sm font-medium text-white">{profile?.full_name || "User"}</p>
+              <p className="text-xs text-purple-300">{profile?.job_title || user?.email}</p>
             </div>
             
-            <img
-              src={user.picture}
-              alt={user.name}
-              className="w-10 h-10 rounded-full border-2 border-purple-500 shadow-lg shadow-purple-500/30"
-            />
+            {getAvatarContent()}
             
             <button
-              onClick={onLogout}
+              onClick={handleSignOut}
               className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
               title="Logout"
             >
@@ -58,5 +92,3 @@ function Navbar({ user, onLogout }: NavbarProps) {
     </nav>
   );
 }
-
-export default Navbar;
