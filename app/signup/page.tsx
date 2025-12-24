@@ -3,10 +3,9 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { Check } from 'lucide-react';
-import { createClient } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';  
 
 export default function SignUpPage() {
-  const supabase = createClient();
   const [loading, setLoading] = useState(false);
 
   const handleGoogleSignUp = async () => {
