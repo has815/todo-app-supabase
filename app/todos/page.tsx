@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { User } from '@supabase/supabase-js';
-import { LogOut, Plus, Trash2, Calendar, CheckCircle, Circle, Filter } from 'lucide-react';
+import { LogOut, Plus, Trash2, Calendar, CheckCircle, Circle, Filter, Mic, Edit2, Languages } from 'lucide-react';
 
 type Todo = {
   id: string;
@@ -21,6 +21,19 @@ export default function TodosPage() {
   const [newDueDate, setNewDueDate] = useState('');
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'active' | 'completed'>('all');
+  const [isListening, setIsListening] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState('');
+  const [selectedLanguage, setSelectedLanguage] = useState('en');
+
+  const languages = [
+    { code: 'en', name: 'English', flag: '🇬🇧' },
+    { code: 'ur', name: 'اردو', flag: '🇵🇰' },
+    { code: 'hi', name: 'हिन्दी', flag: '🇮🇳' },
+    { code: 'es', name: 'Español', flag: '🇪🇸' },
+    { code: 'ja', name: '日本語', flag: '🇯🇵' },
+    { code: 'fr', name: 'Français', flag: '🇫🇷' },
+  ];
 
   useEffect(() => {
     checkAuthAndLoadData();
@@ -59,6 +72,33 @@ export default function TodosPage() {
     } catch (error) {
       console.error('Logout error:', error);
     }
+  }
+
+  function startVoiceInput() {
+    if (!('webkitSpeechRecognition' in window)) {
+      alert('Voice input not supported in your browser');
+      return;
+    }
+
+    const recognition = new (window as any).webkitSpeechRecognition();
+    recognition.lang = selectedLanguage;
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    recognition.onstart = () => setIsListening(true);
+    recognition.onend = () => setIsListening(false);
+    
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setNewTodo(transcript);
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error('Speech recognition error:', event.error);
+      setIsListening(false);
+    };
+
+    recognition.start();
   }
 
   async function addTodo(e: React.FormEvent) {
@@ -122,6 +162,63 @@ export default function TodosPage() {
     }
   }
 
+  function startEdit(id: string, currentTitle: string) {
+    setEditingId(id);
+    setEditText(currentTitle);
+  }
+
+  async function saveEdit(id: string) {
+    if (!editText.trim()) return;
+
+    try {
+      const { error } = await supabase
+        .from('todos')
+        .update({ title: editText.trim() })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setTodos(todos.map(todo => 
+        todo.id === id ? { ...todo, title: editText.trim() } : todo
+      ));
+      setEditingId(null);
+    } catch (error) {
+      console.error('Error updating todo:', error);
+    }
+  }
+
+  async function translateTodo(text: string, targetLang: string) {
+    try {
+      const response = await fetch(
+        `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(text)}`
+      );
+      const data = await response.json();
+      return data[0][0][0];
+    } catch (error) {
+      console.error('Translation error:', error);
+      return text;
+    }
+  }
+
+  async function handleTranslate(id: string, text: string) {
+    const translated = await translateTodo(text, selectedLanguage);
+    
+    try {
+      const { error } = await supabase
+        .from('todos')
+        .update({ title: translated })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setTodos(todos.map(todo => 
+        todo.id === id ? { ...todo, title: translated } : todo
+      ));
+    } catch (error) {
+      console.error('Error updating translation:', error);
+    }
+  }
+
   const filteredTodos = todos.filter(todo => {
     if (filter === 'active') return !todo.completed;
     if (filter === 'completed') return todo.completed;
@@ -152,24 +249,71 @@ export default function TodosPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900">
-      <nav className="bg-gray-800/50 backdrop-blur-lg border-b border-purple-500/20 shadow-lg">
-        <div className="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-white">Todo App</h1>
-            <p className="text-sm text-gray-400">{user?.email}</p>
+      <nav className="bg-gray-800/50 backdrop-blur-lg border-b border-purple-500/20 shadow-lg sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-8">
+              <div>
+                <h1 className="text-2xl font-bold text-white">Todo App</h1>
+                <p className="text-sm text-gray-400">{user?.email}</p>
+              </div>
+              
+              <div className="hidden md:flex items-center gap-6">
+                <a href="/todos" className="text-purple-400 hover:text-purple-300 transition font-medium">
+                  📋 Tasks
+                </a>
+                <a href="/profile-setup" className="text-gray-300 hover:text-white transition">
+                  👤 Profile
+                </a>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <div className="hidden md:flex items-center gap-3 px-4 py-2 bg-white/10 rounded-lg">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold">
+                  {user?.email?.[0].toUpperCase()}
+                </div>
+                <div className="text-left">
+                  <p className="text-white text-sm font-medium">
+                    {user?.email?.split('@')[0]}
+                  </p>
+                  <p className="text-gray-400 text-xs">Active now</p>
+                </div>
+              </div>
+              
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition shadow-lg"
+              >
+                <LogOut className="w-4 h-4" />
+                <span className="hidden md:inline">Logout</span>
+              </button>
+            </div>
           </div>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition"
-          >
-            <LogOut className="w-4 h-4" />
-            Logout
-          </button>
         </div>
       </nav>
 
       <div className="max-w-4xl mx-auto px-4 py-8">
-        {/* Stats */}
+        <div className="mb-6 flex items-center gap-3 bg-white/10 backdrop-blur-lg rounded-lg p-4 border border-white/20">
+          <Languages className="w-5 h-5 text-purple-400" />
+          <span className="text-white font-medium">Language:</span>
+          <div className="flex gap-2 flex-wrap">
+            {languages.map((lang) => (
+              <button
+                key={lang.code}
+                onClick={() => setSelectedLanguage(lang.code)}
+                className={`px-3 py-1 rounded-lg text-sm font-medium transition ${
+                  selectedLanguage === lang.code
+                    ? 'bg-purple-500 text-white'
+                    : 'bg-white/10 text-gray-300 hover:bg-white/20'
+                }`}
+              >
+                {lang.flag} {lang.name}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <div className="bg-white/10 backdrop-blur-lg rounded-lg p-4 border border-white/20">
             <p className="text-gray-400 text-sm">Total Tasks</p>
@@ -189,16 +333,28 @@ export default function TodosPage() {
           </div>
         </div>
 
-        {/* Add Todo Form */}
         <form onSubmit={addTodo} className="bg-white/10 backdrop-blur-lg rounded-lg p-6 mb-6 border border-white/20">
           <div className="flex flex-col md:flex-row gap-3">
-            <input
-              type="text"
-              value={newTodo}
-              onChange={(e) => setNewTodo(e.target.value)}
-              placeholder="Add a new task..."
-              className="flex-1 px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
+            <div className="flex-1 relative">
+              <input
+                type="text"
+                value={newTodo}
+                onChange={(e) => setNewTodo(e.target.value)}
+                placeholder="Add a new task..."
+                className="w-full px-4 py-3 pr-12 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
+              <button
+                type="button"
+                onClick={startVoiceInput}
+                className={`absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg transition ${
+                  isListening
+                    ? 'bg-red-500 text-white animate-pulse'
+                    : 'bg-purple-500 hover:bg-purple-600 text-white'
+                }`}
+              >
+                <Mic className="w-5 h-5" />
+              </button>
+            </div>
             <input
               type="datetime-local"
               value={newDueDate}
@@ -215,7 +371,6 @@ export default function TodosPage() {
           </div>
         </form>
 
-        {/* Filter Buttons */}
         <div className="flex gap-2 mb-6">
           <button
             onClick={() => setFilter('all')}
@@ -250,7 +405,6 @@ export default function TodosPage() {
           </button>
         </div>
 
-        {/* Todos List */}
         <div className="space-y-3">
           {filteredTodos.length === 0 ? (
             <div className="bg-white/10 backdrop-blur-lg rounded-lg p-12 text-center border border-white/20">
@@ -292,43 +446,88 @@ export default function TodosPage() {
                     </button>
                     
                     <div className="flex-1">
-                      <p className={`text-lg ${
-                        todo.completed
-                          ? 'text-gray-400 line-through'
-                          : 'text-white'
-                      }`}>
-                        {todo.title}
-                      </p>
-                      
-                      {dueDate && (
-                        <div className="flex items-center gap-2 mt-1">
-                          <Calendar className="w-4 h-4 text-gray-400" />
-                          <span className={`text-sm ${
-                            isOverdue
-                              ? 'text-red-400 font-semibold'
-                              : isDueToday
-                              ? 'text-yellow-400 font-semibold'
-                              : 'text-gray-400'
-                          }`}>
-                            {isOverdue && '⚠️ Overdue: '}
-                            {isDueToday && '📅 Today: '}
-                            {dueDate.toLocaleString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
-                          </span>
+                      {editingId === todo.id ? (
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={editText}
+                            onChange={(e) => setEditText(e.target.value)}
+                            className="flex-1 px-3 py-2 bg-gray-800/50 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                            autoFocus
+                          />
+                          <button
+                            onClick={() => saveEdit(todo.id)}
+                            className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition"
+                          >
+                            Save
+                          </button>
+                          <button
+                            onClick={() => setEditingId(null)}
+                            className="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition"
+                          >
+                            Cancel
+                          </button>
                         </div>
+                      ) : (
+                        <>
+                          <p className={`text-lg ${
+                            todo.completed
+                              ? 'text-gray-400 line-through'
+                              : 'text-white'
+                          }`}>
+                            {todo.title}
+                          </p>
+                          
+                          {dueDate && (
+                            <div className="flex items-center gap-2 mt-1">
+                              <Calendar className="w-4 h-4 text-gray-400" />
+                              <span className={`text-sm ${
+                                isOverdue
+                                  ? 'text-red-400 font-semibold'
+                                  : isDueToday
+                                  ? 'text-yellow-400 font-semibold'
+                                  : 'text-gray-400'
+                              }`}>
+                                {isOverdue && '⚠️ Overdue: '}
+                                {isDueToday && '📅 Today: '}
+                                {dueDate.toLocaleString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </span>
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
 
-                    <button
-                      onClick={() => deleteTodo(todo.id)}
-                      className="text-gray-400 hover:text-red-400 transition"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
+                    {editingId !== todo.id && (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleTranslate(todo.id, todo.title)}
+                          className="text-blue-400 hover:text-blue-300 transition"
+                          title="Translate"
+                        >
+                          <Languages className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() => startEdit(todo.id, todo.title)}
+                          className="text-yellow-400 hover:text-yellow-300 transition"
+                          title="Edit"
+                        >
+                          <Edit2 className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() => deleteTodo(todo.id)}
+                          className="text-red-400 hover:text-red-300 transition"
+                          title="Delete"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
