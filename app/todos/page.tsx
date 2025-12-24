@@ -4,15 +4,6 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { User } from '@supabase/supabase-js';
 import { LogOut, Plus, Trash2, Calendar, CheckCircle, Circle, Filter } from 'lucide-react';
-import NotificationManager from '../components/NotificationManager';
-import Toast from '../components/Toast';
-import { 
-  checkUpcomingTodos, 
-  scheduleDailyReminder, 
-  startNotificationChecker,
-  notifyTaskCompleted,
-  notifyTaskAdded 
-} from '../../lib/notifications';
 
 type Todo = {
   id: string;
@@ -23,42 +14,17 @@ type Todo = {
   due_date: string | null;
 };
 
-type UserInfo = {
-  email: string;
-  id: string;
-};
-
 export default function TodosPage() {
   const [user, setUser] = useState<User | null>(null);
-  const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [todos, setTodos] = useState<Todo[]>([]);
   const [newTodo, setNewTodo] = useState('');
   const [newDueDate, setNewDueDate] = useState('');
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'active' | 'completed'>('all');
-  const [toast, setToast] = useState<{
-    message: string;
-    type: 'success' | 'error' | 'info' | 'warning';
-  } | null>(null);
 
   useEffect(() => {
     checkAuthAndLoadData();
   }, []);
-
-  useEffect(() => {
-    if (!loading && todos.length > 0 && userInfo) {
-      // Start checking for upcoming tasks (1 hour before)
-      const cleanup = startNotificationChecker(todos, userInfo.email);
-      
-      // Check for daily reminder
-      scheduleDailyReminder(todos, userInfo.email);
-      
-      // Check on load
-      checkUpcomingTodos(todos, userInfo.email);
-      
-      return cleanup;
-    }
-  }, [loading, todos, userInfo]);
 
   async function checkAuthAndLoadData() {
     try {
@@ -70,10 +36,6 @@ export default function TodosPage() {
       }
 
       setUser(user);
-      setUserInfo({
-        email: user.email || '',
-        id: user.id
-      });
 
       const { data: todosData, error } = await supabase
         .from('todos')
@@ -85,7 +47,6 @@ export default function TodosPage() {
       setTodos(todosData || []);
     } catch (error) {
       console.error('Error:', error);
-      setToast({ message: 'Failed to load data', type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -97,7 +58,6 @@ export default function TodosPage() {
       window.location.href = '/';
     } catch (error) {
       console.error('Logout error:', error);
-      setToast({ message: 'Logout failed', type: 'error' });
     }
   }
 
@@ -124,16 +84,9 @@ export default function TodosPage() {
         setTodos([data, ...todos]);
         setNewTodo('');
         setNewDueDate('');
-        
-        // Show toast notification
-        setToast({ message: 'Task added successfully!', type: 'success' });
-        
-        // Browser notification
-        notifyTaskAdded(data.title);
       }
     } catch (error) {
       console.error('Error adding todo:', error);
-      setToast({ message: 'Failed to add task', type: 'error' });
     }
   }
 
@@ -149,18 +102,8 @@ export default function TodosPage() {
       setTodos(todos.map(todo => 
         todo.id === id ? { ...todo, completed: !completed } : todo
       ));
-      
-      // If marking as completed, show notification
-      if (!completed) {
-        const completedTodo = todos.find(t => t.id === id);
-        if (completedTodo) {
-          setToast({ message: 'Task completed! 🎉', type: 'success' });
-          notifyTaskCompleted(completedTodo.title);
-        }
-      }
     } catch (error) {
       console.error('Error toggling todo:', error);
-      setToast({ message: 'Failed to update task', type: 'error' });
     }
   }
 
@@ -174,10 +117,8 @@ export default function TodosPage() {
       if (error) throw error;
 
       setTodos(todos.filter(todo => todo.id !== id));
-      setToast({ message: 'Task deleted', type: 'info' });
     } catch (error) {
       console.error('Error deleting todo:', error);
-      setToast({ message: 'Failed to delete task', type: 'error' });
     }
   }
 
@@ -211,20 +152,11 @@ export default function TodosPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900">
-      {/* Toast Notification */}
-      {toast && (
-        <Toast
-          message={toast.message}
-          type={toast.type}
-          onClose={() => setToast(null)}
-        />
-      )}
-
       <nav className="bg-gray-800/50 backdrop-blur-lg border-b border-purple-500/20 shadow-lg">
         <div className="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center">
           <div>
             <h1 className="text-2xl font-bold text-white">Todo App</h1>
-            <p className="text-sm text-gray-400">{userInfo?.email}</p>
+            <p className="text-sm text-gray-400">{user?.email}</p>
           </div>
           <button
             onClick={handleLogout}
@@ -237,9 +169,6 @@ export default function TodosPage() {
       </nav>
 
       <div className="max-w-4xl mx-auto px-4 py-8">
-        {/* Notification Manager */}
-        <NotificationManager />
-
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <div className="bg-white/10 backdrop-blur-lg rounded-lg p-4 border border-white/20">
