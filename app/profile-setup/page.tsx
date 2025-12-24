@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 
 export default function ProfileSetupPage() {
   const [fullName, setFullName] = useState('');
@@ -12,7 +12,6 @@ export default function ProfileSetupPage() {
   const [error, setError] = useState('');
   
   const router = useRouter();
-  const supabase = createClient();
 
   useEffect(() => {
     checkAuth();
@@ -36,11 +35,11 @@ export default function ProfileSetupPage() {
 
       console.log('✅ User authenticated:', session.user.id);
 
-      // Check if profile exists - CHANGED: using user_id
+      // Check if profile exists - using user_id
       const { data: existingProfile, error: profileError } = await supabase
         .from('profiles')
         .select('*')
-        .eq('user_id', session.user.id)  // ✅ Changed to user_id
+        .eq('user_id', session.user.id)
         .maybeSingle();
 
       if (profileError) {
@@ -80,12 +79,12 @@ export default function ProfileSetupPage() {
         return;
       }
 
-      // CHANGED: using user_id instead of id
+      // Using user_id instead of id
       const { data, error: insertError } = await supabase
         .from('profiles')
         .insert([
           {
-            user_id: session.user.id,  // ✅ Changed to user_id
+            user_id: session.user.id,
             full_name: fullName.trim(),
             job_title: jobTitle.trim(),
           }
