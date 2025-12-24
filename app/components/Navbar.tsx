@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase";
 import { LogOut, Check } from "lucide-react";
 
 export default function Navbar() {
@@ -10,7 +10,6 @@ export default function Navbar() {
   const [profile, setProfile] = useState<any>(null);
   const [showMenu, setShowMenu] = useState(false);
   const router = useRouter();
-  const supabase = createClient();
 
   useEffect(() => {
     getUser();
