@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { User } from '@supabase/supabase-js';
 import { LogOut, Plus, Trash2, Calendar, CheckCircle, Circle, Filter, Mic, Edit2, Languages } from 'lucide-react';
+
 type Todo = {
   id: string;
   title: string;
