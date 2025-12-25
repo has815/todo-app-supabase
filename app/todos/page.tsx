@@ -56,24 +56,63 @@ export default function TodosPage() {
   };
 
   const fetchTodos = async () => {
-    const { data } = await supabase
-      .from("todos")
-      .select("*")
-      .order("created_at", { ascending: false });
-    if (data) setTodos(data);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from("todos")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+      
+      if (error) {
+        console.error("Error fetching todos:", error);
+        return;
+      }
+      
+      if (data) setTodos(data);
+    } catch (err) {
+      console.error("Fetch todos error:", err);
+    }
   };
 
   const addTodo = async () => {
     if (!newTask.trim()) return;
-    const { data } = await supabase
-      .from("todos")
-      .insert([{ task: newTask, due_date: dueDate || null }])
-      .select()
-      .single();
-    if (data) {
-      setTodos([data, ...todos]);
-      setNewTask("");
-      setDueDate("");
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        alert("Please sign in first!");
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("todos")
+        .insert([{ 
+          task: newTask, 
+          due_date: dueDate || null,
+          user_id: user.id 
+        }])
+        .select()
+        .single();
+      
+      if (error) {
+        console.error("Error adding todo:", error);
+        alert(`Error: ${error.message}`);
+        return;
+      }
+
+      if (data) {
+        setTodos([data, ...todos]);
+        setNewTask("");
+        setDueDate("");
+      }
+    } catch (err) {
+      console.error("Add todo error:", err);
+      alert("Failed to add task. Check console for details.");
     }
   };
 
@@ -136,12 +175,6 @@ export default function TodosPage() {
     recognition.start();
   };
 
-  const translateTask = async (taskId: string, text: string) => {
-    // Simple demo translation using Google Translate API would go here
-    // For now, just show alert
-    alert(`Translation feature would translate: "${text}" to ${languages.find(l => l.code === currentLanguage)?.name}`);
-  };
-
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     router.push("/signin");
@@ -179,38 +212,6 @@ export default function TodosPage() {
             <h1 className="text-2xl font-bold text-white">✨ My Todos</h1>
             
             <div className="flex items-center gap-4">
-              {/* Language Dropdown */}
-              <div className="relative">
-                <button
-                  onClick={() => setShowLangDropdown(!showLangDropdown)}
-                  className="flex items-center gap-2 px-4 py-2 bg-white/20 backdrop-blur-md rounded-lg hover:bg-white/30 transition-all"
-                >
-                  <span className="text-2xl">{languages.find(l => l.code === currentLanguage)?.flag}</span>
-                  <span className="text-white font-medium">{languages.find(l => l.code === currentLanguage)?.name}</span>
-                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-                
-                {showLangDropdown && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl z-50 overflow-hidden">
-                    {languages.map((lang) => (
-                      <button
-                        key={lang.code}
-                        onClick={() => {
-                          setCurrentLanguage(lang.code);
-                          setShowLangDropdown(false);
-                        }}
-                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-purple-50 transition-colors"
-                      >
-                        <span className="text-2xl">{lang.flag}</span>
-                        <span className="font-medium text-gray-800">{lang.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
               {/* User Profile */}
               {user && (
                 <div className="flex items-center gap-3 bg-white/20 backdrop-blur-md rounded-lg px-4 py-2">
@@ -390,23 +391,6 @@ export default function TodosPage() {
                     title="Edit"
                   >
                     ✏️
-                  </button>
-                  <button
-                    onClick={() => startVoiceInput(false)}
-                    disabled={isListening}
-                    className={`p-2 rounded-lg ${
-                      isListening ? "bg-red-500 animate-pulse" : "bg-purple-500 hover:bg-purple-600"
-                    } text-white transition-all`}
-                    title="Voice input"
-                  >
-                    🎤
-                  </button>
-                  <button
-                    onClick={() => translateTask(todo.id, todo.task)}
-                    className="p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
-                    title="Translate"
-                  >
-                    🌐
                   </button>
                   <button
                     onClick={() => deleteTodo(todo.id)}
