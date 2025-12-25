@@ -8,7 +8,7 @@ import { requestNotificationPermission, startNotificationChecker } from '../../l
 
 interface Todo {
   id: string;
-  task: string;
+  title: string;  // ✅ Changed from 'task' to 'title'
   completed: boolean;
   due_date: string | null;
   user_id: string;
@@ -115,13 +115,11 @@ export default function TodosPage() {
   // Text-to-Speech Function
   const speakText = (text: string, todoId: string) => {
     if (speakingId === todoId) {
-      // Stop speaking if already speaking this task
       window.speechSynthesis.cancel();
       setSpeakingId(null);
       return;
     }
 
-    // Stop any ongoing speech
     window.speechSynthesis.cancel();
     
     const utterance = new SpeechSynthesisUtterance(text);
@@ -158,15 +156,15 @@ export default function TodosPage() {
     setShowTranslateMenu(null);
 
     try {
-      const translated = await translateText(todo.task, targetLang);
+      const translated = await translateText(todo.title, targetLang);
       
       const { error } = await supabase
         .from('todos')
-        .update({ task: translated })
+        .update({ title: translated })
         .eq('id', todoId);
 
       if (!error) {
-        setTodos(todos.map(t => t.id === todoId ? { ...t, task: translated } : t));
+        setTodos(todos.map(t => t.id === todoId ? { ...t, title: translated } : t));
       }
     } catch (error) {
       console.error('Error translating:', error);
@@ -181,7 +179,7 @@ export default function TodosPage() {
 
     try {
       const todoData = {
-        task: newTodo.trim(),
+        title: newTodo.trim(),
         completed: false,
         user_id: user.id,
         due_date: dueDate || null
@@ -204,7 +202,7 @@ export default function TodosPage() {
         setDueDate('');
         
         // Speak the newly added task
-        setTimeout(() => speakText(data.task, data.id), 300);
+        setTimeout(() => speakText(data.title, data.id), 300);
       }
     } catch (error: any) {
       console.error('Error adding todo:', error);
@@ -244,7 +242,7 @@ export default function TodosPage() {
 
   const startEdit = (todo: Todo) => {
     setEditingId(todo.id);
-    setEditText(todo.task);
+    setEditText(todo.title);
   };
 
   const saveEdit = async (id: string) => {
@@ -253,11 +251,11 @@ export default function TodosPage() {
     try {
       const { error } = await supabase
         .from('todos')
-        .update({ task: editText })
+        .update({ title: editText })
         .eq('id', id);
 
       if (!error) {
-        setTodos(todos.map(t => t.id === id ? { ...t, task: editText } : t));
+        setTodos(todos.map(t => t.id === id ? { ...t, title: editText } : t));
         setEditingId(null);
         setEditText('');
       }
@@ -481,7 +479,7 @@ export default function TodosPage() {
                     ) : (
                       <div>
                         <p className={`text-white font-medium break-words ${todo.completed ? 'line-through opacity-60' : ''}`}>
-                          {todo.task}
+                          {todo.title}
                         </p>
                         {todo.due_date && (
                           <div className="flex items-center gap-2 mt-1 flex-wrap">
@@ -531,7 +529,7 @@ export default function TodosPage() {
                         
                         {/* Text-to-Speech Button */}
                         <button
-                          onClick={() => speakText(todo.task, todo.id)}
+                          onClick={() => speakText(todo.title, todo.id)}
                           className={`p-2 rounded-lg transition ${
                             isSpeaking 
                               ? 'bg-purple-600/40 animate-pulse' 
