@@ -1,45 +1,137 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from 'react';
+import { supabase } from '../../lib/supabase';
+import { User } from '@supabase/supabase-js';
+import { LogOut, Plus, Trash2, Calendar, CheckCircle, Circle, Mic, Edit2, Languages, X, Check, Globe } from 'lucide-react';
 
 interface Todo {
-  id: string;
-  task: string;
+  id: number;
+  title: string;
   completed: boolean;
-  due_date: string | null;
+  due_date: string;
+  user_id: string;
   created_at: string;
 }
 
-interface User {
-  email: string;
-  user_metadata: {
-    name?: string;
-    job_title?: string;
-  };
+interface Profile {
+  full_name: string;
+  job_title: string;
+  avatar_url?: string;
 }
 
 export default function TodosPage() {
-  const [todos, setTodos] = useState<Todo[]>([]);
-  const [newTask, setNewTask] = useState("");
-  const [dueDate, setDueDate] = useState("");
   const [user, setUser] = useState<User | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editText, setEditText] = useState("");
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [todos, setTodos] = useState<Todo[]>([]);
+  const [newTodo, setNewTodo] = useState('');
+  const [dueDate, setDueDate] = useState('');
+  const [filter, setFilter] = useState<'all' | 'active' | 'completed'>('all');
+  const [currentLang, setCurrentLang] = useState('en');
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editText, setEditText] = useState('');
   const [isListening, setIsListening] = useState(false);
-  const [currentLanguage, setCurrentLanguage] = useState("en-US");
-  const [showLangDropdown, setShowLangDropdown] = useState(false);
-  const router = useRouter();
+  const [listeningFor, setListeningFor] = useState<'new' | number | null>(null);
+  const [showLangMenu, setShowLangMenu] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const languages = [
-    { code: "en-US", name: "English", flag: "🇺🇸" },
-    { code: "ur-PK", name: "Urdu", flag: "🇵🇰" },
-    { code: "hi-IN", name: "Hindi", flag: "🇮🇳" },
-    { code: "es-ES", name: "Spanish", flag: "🇪🇸" },
-    { code: "ja-JP", name: "Japanese", flag: "🇯🇵" },
-    { code: "fr-FR", name: "French", flag: "🇫🇷" },
+    { code: 'en', name: 'English', flag: '🇬🇧' },
+    { code: 'ur', name: 'اردو', flag: '🇵🇰' },
+    { code: 'hi', name: 'हिन्दी', flag: '🇮🇳' },
+    { code: 'es', name: 'Español', flag: '🇪🇸' },
+    { code: 'ja', name: '日本語', flag: '🇯🇵' },
+    { code: 'fr', name: 'Français', flag: '🇫🇷' }
   ];
+
+  const translations: Record<string, any> = {
+    en: { 
+      addTask: 'Add Task', 
+      tasks: 'Tasks', 
+      profile: 'Profile', 
+      totalTasks: 'Total Tasks', 
+      active: 'Active', 
+      completed: 'Completed', 
+      dueToday: 'Due Today', 
+      all: 'All', 
+      language: 'Language',
+      addNewTask: 'Add a new task...',
+      activeNow: 'Active now',
+      overdue: 'Overdue'
+    },
+    ur: { 
+      addTask: 'ٹاسک شامل کریں', 
+      tasks: 'ٹاسک', 
+      profile: 'پروفائل', 
+      totalTasks: 'کل ٹاسک', 
+      active: 'فعال', 
+      completed: 'مکمل', 
+      dueToday: 'آج واجب', 
+      all: 'سب', 
+      language: 'زبان',
+      addNewTask: 'نیا ٹاسک شامل کریں...',
+      activeNow: 'فعال ابھی',
+      overdue: 'تاخیر'
+    },
+    hi: { 
+      addTask: 'कार्य जोड़ें', 
+      tasks: 'कार्य', 
+      profile: 'प्रोफ़ाइल', 
+      totalTasks: 'कुल कार्य', 
+      active: 'सक्रिय', 
+      completed: 'पूर्ण', 
+      dueToday: 'आज नियत', 
+      all: 'सभी', 
+      language: 'भाषा',
+      addNewTask: 'नया कार्य जोड़ें...',
+      activeNow: 'अभी सक्रिय',
+      overdue: 'विलंबित'
+    },
+    es: { 
+      addTask: 'Agregar Tarea', 
+      tasks: 'Tareas', 
+      profile: 'Perfil', 
+      totalTasks: 'Total', 
+      active: 'Activas', 
+      completed: 'Completadas', 
+      dueToday: 'Hoy', 
+      all: 'Todas', 
+      language: 'Idioma',
+      addNewTask: 'Agregar nueva tarea...',
+      activeNow: 'Activo ahora',
+      overdue: 'Atrasada'
+    },
+    ja: { 
+      addTask: '追加', 
+      tasks: 'タスク', 
+      profile: 'プロフィール', 
+      totalTasks: '合計', 
+      active: '進行中', 
+      completed: '完了', 
+      dueToday: '今日', 
+      all: 'すべて', 
+      language: '言語',
+      addNewTask: '新しいタスクを追加...',
+      activeNow: '今アクティブ',
+      overdue: '期限切れ'
+    },
+    fr: { 
+      addTask: 'Ajouter', 
+      tasks: 'Tâches', 
+      profile: 'Profil', 
+      totalTasks: 'Total', 
+      active: 'Actives', 
+      completed: 'Terminées', 
+      dueToday: "Aujourd'hui", 
+      all: 'Toutes', 
+      language: 'Langue',
+      addNewTask: 'Ajouter une nouvelle tâche...',
+      activeNow: 'Actif maintenant',
+      overdue: 'En retard'
+    }
+  };
+
+  const t = translations[currentLang];
 
   useEffect(() => {
     checkUser();
@@ -47,367 +139,556 @@ export default function TodosPage() {
   }, []);
 
   const checkUser = async () => {
-    const { data } = await supabase.auth.getUser();
-    if (!data.user) {
-      router.push("/signin");
-    } else {
-      setUser(data.user as User);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      window.location.href = '/signin';
+      return;
+    }
+    setUser(user);
+    fetchProfile(user.id);
+  };
+
+  const fetchProfile = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('full_name, job_title, avatar_url')
+        .eq('id', userId)
+        .single();
+
+      if (error) throw error;
+      setProfile(data);
+    } catch (error) {
+      console.error('Error fetching profile:', error);
     }
   };
 
   const fetchTodos = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      
       if (!user) return;
 
       const { data, error } = await supabase
-        .from("todos")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
-      
-      if (error) {
-        console.error("Error fetching todos:", error);
-        return;
-      }
-      
-      if (data) setTodos(data);
-    } catch (err) {
-      console.error("Fetch todos error:", err);
+        .from('todos')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setTodos(data || []);
+    } catch (error) {
+      console.error('Error fetching todos:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const addTodo = async () => {
-    if (!newTask.trim()) return;
-    
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        alert("Please sign in first!");
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from("todos")
-        .insert([{ 
-          task: newTask, 
-          due_date: dueDate || null,
-          user_id: user.id 
-        }])
-        .select()
-        .single();
-      
-      if (error) {
-        console.error("Error adding todo:", error);
-        alert(`Error: ${error.message}`);
-        return;
-      }
-
-      if (data) {
-        setTodos([data, ...todos]);
-        setNewTask("");
-        setDueDate("");
-      }
-    } catch (err) {
-      console.error("Add todo error:", err);
-      alert("Failed to add task. Check console for details.");
-    }
-  };
-
-  const toggleTodo = async (id: string, completed: boolean) => {
-    await supabase.from("todos").update({ completed: !completed }).eq("id", id);
-    setTodos(todos.map((t) => (t.id === id ? { ...t, completed: !completed } : t)));
-  };
-
-  const deleteTodo = async (id: string) => {
-    await supabase.from("todos").delete().eq("id", id);
-    setTodos(todos.filter((t) => t.id !== id));
-  };
-
-  const startEdit = (todo: Todo) => {
-    setEditingId(todo.id);
-    setEditText(todo.task);
-  };
-
-  const saveEdit = async (id: string) => {
-    if (!editText.trim()) return;
-    await supabase.from("todos").update({ task: editText }).eq("id", id);
-    setTodos(todos.map((t) => (t.id === id ? { ...t, task: editText } : t)));
-    setEditingId(null);
-    setEditText("");
-  };
-
-  const cancelEdit = () => {
-    setEditingId(null);
-    setEditText("");
-  };
-
-  const startVoiceInput = (forEdit = false) => {
-    if (!("webkitSpeechRecognition" in window)) {
-      alert("Voice input not supported in your browser");
+  const startVoiceInput = (target: 'new' | number) => {
+    if (!('webkitSpeechRecognition' in window)) {
+      alert('Voice input not supported in your browser');
       return;
     }
 
     const recognition = new (window as any).webkitSpeechRecognition();
-    recognition.lang = currentLanguage;
+    const langMap: Record<string, string> = {
+      'ur': 'ur-PK',
+      'hi': 'hi-IN',
+      'es': 'es-ES',
+      'ja': 'ja-JP',
+      'fr': 'fr-FR',
+      'en': 'en-US'
+    };
+    
+    recognition.lang = langMap[currentLang] || 'en-US';
     recognition.continuous = false;
     recognition.interimResults = false;
 
-    recognition.onstart = () => setIsListening(true);
-    recognition.onend = () => setIsListening(false);
+    setIsListening(true);
+    setListeningFor(target);
 
     recognition.onresult = (event: any) => {
       const transcript = event.results[0][0].transcript;
-      if (forEdit) {
-        setEditText(transcript);
+      if (target === 'new') {
+        setNewTodo(transcript);
       } else {
-        setNewTask(transcript);
+        setEditText(transcript);
       }
     };
 
-    recognition.onerror = () => {
+    recognition.onerror = (event: any) => {
+      console.error('Speech recognition error:', event.error);
       setIsListening(false);
-      alert("Voice recognition error");
+      setListeningFor(null);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+      setListeningFor(null);
     };
 
     recognition.start();
   };
 
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    router.push("/signin");
+  const translateText = async (text: string, targetLang: string) => {
+    // Simple mock translation - in production, use Google Translate API or similar
+    return text + ` [${targetLang.toUpperCase()}]`;
   };
 
+  const translateTodo = async (todoId: number) => {
+    const todo = todos.find(t => t.id === todoId);
+    if (!todo) return;
+
+    const translated = await translateText(todo.title, currentLang);
+    
+    try {
+      const { error } = await supabase
+        .from('todos')
+        .update({ title: translated })
+        .eq('id', todoId);
+
+      if (error) throw error;
+      setTodos(todos.map(t => t.id === todoId ? { ...t, title: translated } : t));
+    } catch (error) {
+      console.error('Error translating todo:', error);
+    }
+  };
+
+  const addTodo = async () => {
+    if (!newTodo.trim() || !user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('todos')
+        .insert([
+          {
+            title: newTodo,
+            completed: false,
+            due_date: dueDate || new Date(Date.now() + 86400000).toISOString(),
+            user_id: user.id
+          }
+        ])
+        .select();
+
+      if (error) throw error;
+
+      if (data) {
+        setTodos([data[0], ...todos]);
+        setNewTodo('');
+        setDueDate('');
+      }
+    } catch (error) {
+      console.error('Error adding todo:', error);
+    }
+  };
+
+  const toggleTodo = async (id: number, completed: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('todos')
+        .update({ completed: !completed })
+        .eq('id', id);
+
+      if (error) throw error;
+      setTodos(todos.map(t => t.id === id ? { ...t, completed: !completed } : t));
+    } catch (error) {
+      console.error('Error toggling todo:', error);
+    }
+  };
+
+  const deleteTodo = async (id: number) => {
+    try {
+      const { error } = await supabase
+        .from('todos')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      setTodos(todos.filter(t => t.id !== id));
+    } catch (error) {
+      console.error('Error deleting todo:', error);
+    }
+  };
+
+  const startEdit = (todo: Todo) => {
+    setEditingId(todo.id);
+    setEditText(todo.title);
+  };
+
+  const saveEdit = async (id: number) => {
+    if (!editText.trim()) return;
+
+    try {
+      const { error } = await supabase
+        .from('todos')
+        .update({ title: editText })
+        .eq('id', id);
+
+      if (error) throw error;
+      setTodos(todos.map(t => t.id === id ? { ...t, title: editText } : t));
+      setEditingId(null);
+      setEditText('');
+    } catch (error) {
+      console.error('Error updating todo:', error);
+    }
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditText('');
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    window.location.href = '/signin';
+  };
+
+  const getFilteredTodos = () => {
+    if (filter === 'active') return todos.filter(t => !t.completed);
+    if (filter === 'completed') return todos.filter(t => t.completed);
+    return todos;
+  };
+
+  const getDueStatus = (dueDate: string) => {
+    const due = new Date(dueDate);
+    const now = new Date();
+    const diff = due.getTime() - now.getTime();
+    const hours = diff / (1000 * 60 * 60);
+
+    if (hours < 0) return { status: 'overdue', color: 'text-red-400', icon: '⚠️', label: t.overdue };
+    if (hours < 24) return { status: 'today', color: 'text-orange-400', icon: '📅', label: 'Today' };
+    return { status: 'upcoming', color: 'text-purple-400', icon: '📆', label: 'Upcoming' };
+  };
+
+  const filteredTodos = getFilteredTodos();
   const stats = {
     total: todos.length,
-    active: todos.filter((t) => !t.completed).length,
-    completed: todos.filter((t) => t.completed).length,
-    dueToday: todos.filter((t) => {
-      if (!t.due_date) return false;
-      const today = new Date().toDateString();
-      return new Date(t.due_date).toDateString() === today;
-    }).length,
+    active: todos.filter(t => !t.completed).length,
+    completed: todos.filter(t => t.completed).length,
+    dueToday: todos.filter(t => {
+      const due = new Date(t.due_date);
+      const today = new Date();
+      return due.toDateString() === today.toDateString() && !t.completed;
+    }).length
   };
 
-  const getTaskStatus = (todo: Todo) => {
-    if (!todo.due_date) return null;
-    const due = new Date(todo.due_date);
-    const today = new Date();
-    const diffDays = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-    
-    if (diffDays < 0) return { text: "Overdue", color: "text-red-500", icon: "⚠️" };
-    if (diffDays === 0) return { text: "Today", color: "text-yellow-500", icon: "📅" };
-    if (diffDays <= 3) return { text: "Upcoming", color: "text-blue-500", icon: "📆" };
-    return null;
-  };
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-indigo-900 to-blue-900 flex items-center justify-center">
+        <div className="text-white text-xl">Loading...</div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-600 via-blue-600 to-cyan-500">
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-indigo-900 to-blue-900">
       {/* Navbar */}
-      <nav className="bg-white/10 backdrop-blur-md border-b border-white/20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <nav className="bg-black/30 backdrop-blur-xl border-b border-white/10 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
           <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-bold text-white">✨ My Todos</h1>
+            <div className="flex items-center gap-4 sm:gap-8">
+              <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+                Todo App
+              </h1>
+              <div className="hidden md:flex gap-6">
+                <button className="text-white/80 hover:text-white transition flex items-center gap-2 text-sm">
+                  <CheckCircle className="w-4 h-4" />
+                  {t.tasks}
+                </button>
+                <button className="text-white/60 hover:text-white/80 transition text-sm">
+                  {t.profile}
+                </button>
+              </div>
+            </div>
             
-            <div className="flex items-center gap-4">
-              {/* User Profile */}
+            <div className="flex items-center gap-2 sm:gap-4">
+              {/* Language Selector */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowLangMenu(!showLangMenu)}
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 transition backdrop-blur-lg border border-white/10"
+                >
+                  <Languages className="w-4 h-4 text-purple-400" />
+                  <span className="text-white text-sm hidden sm:inline">{languages.find(l => l.code === currentLang)?.name}</span>
+                  <span className="text-white text-sm sm:hidden">{languages.find(l => l.code === currentLang)?.flag}</span>
+                </button>
+                
+                {showLangMenu && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-40" 
+                      onClick={() => setShowLangMenu(false)}
+                    />
+                    <div className="absolute right-0 mt-2 w-48 bg-black/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50">
+                      {languages.map(lang => (
+                        <button
+                          key={lang.code}
+                          onClick={() => {
+                            setCurrentLang(lang.code);
+                            setShowLangMenu(false);
+                          }}
+                          className={`w-full px-4 py-3 text-left hover:bg-white/10 transition flex items-center gap-3 ${
+                            currentLang === lang.code ? 'bg-purple-600/30 text-purple-300' : 'text-white/80'
+                          }`}
+                        >
+                          <span className="text-xl">{lang.flag}</span>
+                          <span className="text-sm">{lang.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* User Profile with Avatar */}
               {user && (
-                <div className="flex items-center gap-3 bg-white/20 backdrop-blur-md rounded-lg px-4 py-2">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-r from-purple-400 to-pink-400 flex items-center justify-center text-white font-bold">
-                    {user.email[0].toUpperCase()}
+                <div className="flex items-center gap-3 px-3 py-2 rounded-xl bg-gradient-to-r from-purple-600/20 to-pink-600/20 backdrop-blur-lg border border-white/10">
+                  {profile?.avatar_url ? (
+                    <img 
+                      src={profile.avatar_url} 
+                      alt="Profile" 
+                      className="w-8 h-8 rounded-full object-cover border-2 border-purple-400"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-semibold text-sm border-2 border-purple-400">
+                      {profile?.full_name?.[0]?.toUpperCase() || user.email?.[0]?.toUpperCase() || 'U'}
+                    </div>
+                  )}
+                  <div className="hidden sm:block">
+                    <p className="text-white text-sm font-medium">{profile?.full_name || user.email?.split('@')[0]}</p>
+                    <p className="text-purple-300 text-xs">{profile?.job_title || 'User'}</p>
                   </div>
-                  <div className="text-left">
-                    <p className="text-white font-medium text-sm">
-                      {user.user_metadata?.name || "User"}
-                    </p>
-                    <p className="text-white/70 text-xs">{user.email}</p>
-                    {user.user_metadata?.job_title && (
-                      <p className="text-white/60 text-xs">{user.user_metadata.job_title}</p>
-                    )}
-                  </div>
-                  <button
-                    onClick={handleSignOut}
-                    className="ml-2 px-3 py-1 bg-red-500/80 hover:bg-red-600 text-white text-sm rounded-md transition-colors"
-                  >
-                    Logout
-                  </button>
                 </div>
               )}
+
+              <button
+                onClick={handleLogout}
+                className="p-2 rounded-xl bg-red-600/20 hover:bg-red-600/30 transition backdrop-blur-lg border border-red-500/20"
+                title="Logout"
+              >
+                <LogOut className="w-5 h-5 text-red-400" />
+              </button>
             </div>
           </div>
         </div>
       </nav>
 
-      <div className="max-w-6xl mx-auto px-4 py-8">
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20 hover:scale-105 transition-transform">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-blue-500/30 rounded-lg flex items-center justify-center text-2xl">
-                📋
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
+          {[
+            { label: t.totalTasks, value: stats.total, color: 'from-purple-600 to-purple-800', icon: '📋' },
+            { label: t.active, value: stats.active, color: 'from-blue-600 to-blue-800', icon: '⚡' },
+            { label: t.completed, value: stats.completed, color: 'from-green-600 to-green-800', icon: '✅' },
+            { label: t.dueToday, value: stats.dueToday, color: 'from-orange-600 to-orange-800', icon: '🔔' }
+          ].map((stat, i) => (
+            <div key={i} className={`bg-gradient-to-br ${stat.color} rounded-xl sm:rounded-2xl p-4 sm:p-6 backdrop-blur-lg border border-white/10 shadow-xl hover:scale-105 transition-transform`}>
+              <div className="flex justify-between items-start mb-2">
+                <p className="text-white/80 text-xs sm:text-sm font-medium">{stat.label}</p>
+                <span className="text-xl sm:text-2xl">{stat.icon}</span>
               </div>
-              <div>
-                <p className="text-white/70 text-sm">Total Tasks</p>
-                <p className="text-white text-3xl font-bold">{stats.total}</p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20 hover:scale-105 transition-transform">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-yellow-500/30 rounded-lg flex items-center justify-center text-2xl">
-                ⚡
-              </div>
-              <div>
-                <p className="text-white/70 text-sm">Active</p>
-                <p className="text-white text-3xl font-bold">{stats.active}</p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20 hover:scale-105 transition-transform">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-green-500/30 rounded-lg flex items-center justify-center text-2xl">
-                ✅
-              </div>
-              <div>
-                <p className="text-white/70 text-sm">Completed</p>
-                <p className="text-white text-3xl font-bold">{stats.completed}</p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20 hover:scale-105 transition-transform">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-red-500/30 rounded-lg flex items-center justify-center text-2xl">
-                📅
-              </div>
-              <div>
-                <p className="text-white/70 text-sm">Due Today</p>
-                <p className="text-white text-3xl font-bold">{stats.dueToday}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Add New Task */}
-        <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 mb-6 border border-white/20">
-          <h2 className="text-white text-xl font-semibold mb-4">Add New Task</h2>
-          <div className="flex flex-col md:flex-row gap-3">
-            <input
-              type="text"
-              value={newTask}
-              onChange={(e) => setNewTask(e.target.value)}
-              placeholder="What needs to be done?"
-              className="flex-1 px-4 py-3 rounded-lg bg-white/20 border border-white/30 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-purple-400"
-              onKeyPress={(e) => e.key === "Enter" && addTodo()}
-            />
-            <input
-              type="date"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-              className="px-4 py-3 rounded-lg bg-white/20 border border-white/30 text-white focus:outline-none focus:ring-2 focus:ring-purple-400"
-            />
-            <button
-              onClick={() => addTodo()}
-              className="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg font-semibold hover:shadow-lg transition-all"
-            >
-              Add Task
-            </button>
-          </div>
-        </div>
-
-        {/* Tasks List */}
-        <div className="space-y-3">
-          {todos.map((todo) => (
-            <div
-              key={todo.id}
-              className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/20 hover:bg-white/15 transition-all"
-            >
-              {editingId === todo.id ? (
-                // Edit Mode
-                <div className="flex items-center gap-3">
-                  <input
-                    type="text"
-                    value={editText}
-                    onChange={(e) => setEditText(e.target.value)}
-                    className="flex-1 px-4 py-2 rounded-lg bg-white/20 border border-white/30 text-white focus:outline-none focus:ring-2 focus:ring-purple-400"
-                    autoFocus
-                  />
-                  <button
-                    onClick={() => startVoiceInput(true)}
-                    disabled={isListening}
-                    className={`p-2 rounded-lg ${
-                      isListening ? "bg-red-500 animate-pulse" : "bg-purple-500 hover:bg-purple-600"
-                    } text-white transition-all`}
-                    title="Voice input"
-                  >
-                    🎤
-                  </button>
-                  <button
-                    onClick={() => saveEdit(todo.id)}
-                    className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors"
-                  >
-                    ✓
-                  </button>
-                  <button
-                    onClick={cancelEdit}
-                    className="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ) : (
-                // View Mode
-                <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    checked={todo.completed}
-                    onChange={() => toggleTodo(todo.id, todo.completed)}
-                    className="w-5 h-5 rounded cursor-pointer"
-                  />
-                  <div className="flex-1">
-                    <p className={`text-white text-lg ${todo.completed ? "line-through opacity-50" : ""}`}>
-                      {todo.task}
-                    </p>
-                    {todo.due_date && (
-                      <p className="text-white/60 text-sm mt-1">
-                        Due: {new Date(todo.due_date).toLocaleDateString()}
-                        {getTaskStatus(todo) && (
-                          <span className={`ml-2 ${getTaskStatus(todo)?.color}`}>
-                            {getTaskStatus(todo)?.icon} {getTaskStatus(todo)?.text}
-                          </span>
-                        )}
-                      </p>
-                    )}
-                  </div>
-                  
-                  {/* Action Buttons */}
-                  <button
-                    onClick={() => startEdit(todo)}
-                    className="p-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg transition-colors"
-                    title="Edit"
-                  >
-                    ✏️
-                  </button>
-                  <button
-                    onClick={() => deleteTodo(todo.id)}
-                    className="p-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
-                    title="Delete"
-                  >
-                    🗑️
-                  </button>
-                </div>
-              )}
+              <p className="text-3xl sm:text-4xl font-bold text-white">{stat.value}</p>
             </div>
           ))}
         </div>
 
-        {todos.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-white/70 text-xl">No tasks yet! Add your first task above 🎯</p>
+        {/* Add Task Card */}
+        <div className="bg-black/30 backdrop-blur-xl rounded-xl sm:rounded-2xl p-4 sm:p-6 mb-4 sm:mb-6 border border-white/10 shadow-2xl">
+          <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+            <input
+              type="text"
+              value={newTodo}
+              onChange={(e) => setNewTodo(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && addTodo()}
+              placeholder={t.addNewTask}
+              className="flex-1 px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+            />
+
+            <button
+              onClick={() => startVoiceInput('new')}
+              className={`p-3 rounded-xl transition backdrop-blur-lg border ${
+                isListening && listeningFor === 'new'
+                  ? 'bg-red-600 border-red-400 animate-pulse' 
+                  : 'bg-purple-600/30 hover:bg-purple-600/50 border-purple-500/20'
+              }`}
+              title="Voice Input"
+            >
+              <Mic className="w-5 h-5 text-white" />
+            </button>
+
+            <input
+              type="datetime-local"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+              className="px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500 transition text-sm"
+            />
+
+            <button
+              onClick={addTodo}
+              className="px-4 sm:px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 rounded-xl text-white font-medium flex items-center justify-center gap-2 transition shadow-lg hover:shadow-purple-500/50"
+            >
+              <Plus className="w-5 h-5" />
+              <span className="hidden sm:inline">{t.addTask}</span>
+              <span className="sm:hidden">Add</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Filter Tabs */}
+        <div className="flex gap-2 mb-4 sm:mb-6 overflow-x-auto">
+          {(['all', 'active', 'completed'] as const).map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`px-4 sm:px-6 py-2 rounded-xl font-medium transition whitespace-nowrap text-sm ${
+                filter === f
+                  ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg'
+                  : 'bg-white/10 text-white/60 hover:bg-white/20'
+              }`}
+            >
+              {t[f]} ({f === 'all' ? stats.total : f === 'active' ? stats.active : stats.completed})
+            </button>
+          ))}
+        </div>
+
+        {/* Todo List */}
+        <div className="space-y-3">
+          {filteredTodos.map((todo) => {
+            const dueStatus = getDueStatus(todo.due_date);
+            const isEditing = editingId === todo.id;
+
+            return (
+              <div
+                key={todo.id}
+                className={`bg-black/30 backdrop-blur-xl rounded-xl sm:rounded-2xl p-4 border transition-all hover:scale-[1.01] shadow-xl ${
+                  todo.completed
+                    ? 'border-green-500/30 opacity-75'
+                    : dueStatus.status === 'overdue'
+                    ? 'border-red-500/30'
+                    : 'border-white/10'
+                }`}
+              >
+                <div className="flex items-start sm:items-center gap-3 sm:gap-4">
+                  <button
+                    onClick={() => toggleTodo(todo.id, todo.completed)}
+                    className="flex-shrink-0 mt-1 sm:mt-0"
+                  >
+                    {todo.completed ? (
+                      <CheckCircle className="w-6 h-6 text-green-400" />
+                    ) : (
+                      <Circle className="w-6 h-6 text-white/40 hover:text-purple-400 transition" />
+                    )}
+                  </button>
+
+                  <div className="flex-1 min-w-0">
+                    {isEditing ? (
+                      <div className="flex gap-2 items-center">
+                        <input
+                          type="text"
+                          value={editText}
+                          onChange={(e) => setEditText(e.target.value)}
+                          className="flex-1 px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                          autoFocus
+                        />
+                      </div>
+                    ) : (
+                      <div>
+                        <p className={`text-white font-medium break-words ${todo.completed ? 'line-through opacity-60' : ''}`}>
+                          {todo.title}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          <Calendar className={`w-3 h-3 ${dueStatus.color}`} />
+                          <span className={`text-xs ${dueStatus.color}`}>
+                            {dueStatus.icon} {new Date(todo.due_date).toLocaleString(currentLang)}
+                          </span>
+                          {dueStatus.status === 'overdue' && (
+                            <span className="text-xs bg-red-600/20 px-2 py-0.5 rounded text-red-400">
+                              {dueStatus.label}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Action Buttons - CORRECTED ORDER: Edit → Voice → Translate → Delete */}
+                  <div className="flex gap-2 flex-shrink-0">
+                    {isEditing ? (
+                      <>
+                        <button
+                          onClick={() => startVoiceInput(todo.id)}
+                          className={`p-2 rounded-lg transition ${
+                            isListening && listeningFor === todo.id
+                              ? 'bg-red-600 animate-pulse'
+                              : 'bg-purple-600/20 hover:bg-purple-600/30'
+                          }`}
+                          title="Voice Input"
+                        >
+                          <Mic className="w-5 h-5 text-purple-400" />
+                        </button>
+                        <button
+                          onClick={() => saveEdit(todo.id)}
+                          className="p-2 rounded-lg bg-green-600/20 hover:bg-green-600/30 transition"
+                          title="Save"
+                        >
+                          <Check className="w-5 h-5 text-green-400" />
+                        </button>
+                        <button
+                          onClick={cancelEdit}
+                          className="p-2 rounded-lg bg-gray-600/20 hover:bg-gray-600/30 transition"
+                          title="Cancel"
+                        >
+                          <X className="w-5 h-5 text-gray-400" />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => startEdit(todo)}
+                          className="p-2 rounded-lg bg-yellow-600/20 hover:bg-yellow-600/30 transition"
+                          title="Edit"
+                        >
+                          <Edit2 className="w-5 h-5 text-yellow-400" />
+                        </button>
+                        <button
+                          onClick={() => startVoiceInput(todo.id)}
+                          className={`p-2 rounded-lg transition ${
+                            isListening && listeningFor === todo.id
+                              ? 'bg-red-600 animate-pulse'
+                              : 'bg-purple-600/20 hover:bg-purple-600/30'
+                          }`}
+                          title="Voice Input"
+                        >
+                          <Mic className="w-5 h-5 text-purple-400" />
+                        </button>
+                        <button
+                          onClick={() => translateTodo(todo.id)}
+                          className="p-2 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 transition"
+                          title="Translate"
+                        >
+                          <Globe className="w-5 h-5 text-blue-400" />
+                        </button>
+                      </>
+                    )}
+                    
+                    <button
+                      onClick={() => deleteTodo(todo.id)}
+                      className="p-2 rounded-lg bg-red-600/20 hover:bg-red-600/30 transition"
+                      title="Delete"
+                    >
+                      <Trash2 className="w-5 h-5 text-red-400" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {filteredTodos.length === 0 && (
+          <div className="text-center py-16">
+            <div className="text-6xl mb-4">📝</div>
+            <p className="text-white/60 text-lg">No tasks found</p>
           </div>
         )}
       </div>
