@@ -54,7 +54,19 @@ export default function TodosPage() {
         .eq('user_id', userId)
         .maybeSingle();
 
-      if (data) setProfile(data);
+      if (data) {
+        setProfile(data);
+      } else {
+        // If no profile, use Google avatar from user metadata
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.user_metadata?.avatar_url) {
+          setProfile({
+            full_name: user.user_metadata.full_name || user.email?.split('@')[0] || 'User',
+            job_title: 'User',
+            avatar_url: user.user_metadata.avatar_url
+          });
+        }
+      }
     } catch (error) {
       console.log('Profile not found, using defaults');
     }
@@ -276,11 +288,25 @@ export default function TodosPage() {
               {/* User Profile */}
               {user && (
                 <div className="flex items-center gap-3 px-3 py-2 rounded-xl bg-gradient-to-r from-purple-600/20 to-pink-600/20 backdrop-blur-lg border border-white/10">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-semibold text-sm border-2 border-purple-400">
-                    {profile?.full_name?.[0]?.toUpperCase() || user.email?.[0]?.toUpperCase() || 'U'}
+                  {profile?.avatar_url || user.user_metadata?.avatar_url ? (
+                    <img 
+                      src={profile?.avatar_url || user.user_metadata?.avatar_url} 
+                      alt="Profile" 
+                      className="w-8 h-8 rounded-full object-cover border-2 border-purple-400"
+                      onError={(e) => {
+                        // Fallback to initials if image fails to load
+                        e.currentTarget.style.display = 'none';
+                        e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                      }}
+                    />
+                  ) : null}
+                  <div className={`w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-semibold text-sm border-2 border-purple-400 ${profile?.avatar_url || user.user_metadata?.avatar_url ? 'hidden' : ''}`}>
+                    {profile?.full_name?.[0]?.toUpperCase() || user.user_metadata?.full_name?.[0]?.toUpperCase() || user.email?.[0]?.toUpperCase() || 'U'}
                   </div>
                   <div className="hidden sm:block">
-                    <p className="text-white text-sm font-medium">{profile?.full_name || user.email?.split('@')[0]}</p>
+                    <p className="text-white text-sm font-medium">
+                      {profile?.full_name || user.user_metadata?.full_name || user.email?.split('@')[0]}
+                    </p>
                     <p className="text-purple-300 text-xs">{profile?.job_title || 'User'}</p>
                   </div>
                 </div>
