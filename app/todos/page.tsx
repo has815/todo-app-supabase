@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { User } from '@supabase/supabase-js';
-import { LogOut, Plus, Trash2, Calendar, CheckCircle, Circle, Edit2, X, Check, Globe } from 'lucide-react';
+import { LogOut, Plus, Trash2, Calendar, CheckCircle, Circle, Edit2, X, Check, Globe, Volume2 } from 'lucide-react';
 
 interface Todo {
   id: string;
@@ -482,6 +482,19 @@ export default function TodosPage() {
                           title="Edit"
                         >
                           <Edit2 className="w-5 h-5 text-yellow-400" />
+                        </button>
+                        
+                        {/* Voice/Text-to-Speech Button */}
+                        <button
+                          onClick={() => speakText(todo.title, todo.id)}
+                          className={`p-2 rounded-lg transition ${
+                            isSpeaking 
+                              ? 'bg-purple-600/40 animate-pulse' 
+                              : 'bg-purple-600/20 hover:bg-purple-600/30'
+                          }`}
+                          title="Read aloud"
+                        >
+                          <Volume2 className={`w-5 h-5 ${isSpeaking ? 'text-purple-300' : 'text-purple-400'}`} />
                         </button>
                         <button
                           onClick={() => translateTodo(todo.id)}
