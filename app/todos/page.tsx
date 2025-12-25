@@ -8,7 +8,7 @@ import { requestNotificationPermission, startNotificationChecker } from '../../l
 
 interface Todo {
   id: string;
-  title: string;  // ✅ Changed from 'task' to 'title'
+  title: string;
   completed: boolean;
   due_date: string | null;
   user_id: string;
@@ -20,14 +20,6 @@ interface Profile {
   job_title: string;
   avatar_url?: string;
 }
-
-const LANGUAGES = [
-  { code: 'ur', name: 'Urdu', flag: '🇵🇰', voice: 'ur-PK' },
-  { code: 'hi', name: 'Hindi', flag: '🇮🇳', voice: 'hi-IN' },
-  { code: 'en', name: 'English', flag: '🇺🇸', voice: 'en-US' },
-  { code: 'es', name: 'Spanish', flag: '🇪🇸', voice: 'es-ES' },
-  { code: 'ja', name: 'Japanese', flag: '🇯🇵', voice: 'ja-JP' },
-];
 
 export default function TodosPage() {
   const [user, setUser] = useState<User | null>(null);
@@ -112,7 +104,6 @@ export default function TodosPage() {
     }
   };
 
-  // Text-to-Speech Function
   const speakText = (text: string, todoId: string) => {
     if (speakingId === todoId) {
       window.speechSynthesis.cancel();
@@ -134,7 +125,6 @@ export default function TodosPage() {
     window.speechSynthesis.speak(utterance);
   };
 
-  // Translation Function
   const translateText = async (text: string, targetLang: string): Promise<string> => {
     try {
       const response = await fetch(
@@ -201,7 +191,6 @@ export default function TodosPage() {
         setNewTodo('');
         setDueDate('');
         
-        // Speak the newly added task
         setTimeout(() => speakText(data.title, data.id), 300);
       }
     } catch (error: any) {
@@ -316,7 +305,6 @@ export default function TodosPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-indigo-900 to-blue-900">
-      {/* Navbar */}
       <nav className="bg-black/30 backdrop-blur-xl border-b border-white/10 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
           <div className="flex justify-between items-center">
@@ -364,9 +352,7 @@ export default function TodosPage() {
         </div>
       </nav>
 
-      {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-        {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
           {[
             { label: 'Total Tasks', value: stats.total, color: 'from-purple-600 to-purple-800', icon: '📋' },
@@ -384,7 +370,6 @@ export default function TodosPage() {
           ))}
         </div>
 
-        {/* Add Task Card */}
         <form onSubmit={addTodo} className="bg-black/30 backdrop-blur-xl rounded-xl sm:rounded-2xl p-4 sm:p-6 mb-4 sm:mb-6 border border-white/10 shadow-2xl">
           <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
             <input
@@ -412,7 +397,6 @@ export default function TodosPage() {
           </div>
         </form>
 
-        {/* Filter Tabs */}
         <div className="flex gap-2 mb-4 sm:mb-6 overflow-x-auto">
           {[
             { key: 'all', label: 'All', count: stats.total },
@@ -433,7 +417,6 @@ export default function TodosPage() {
           ))}
         </div>
 
-        {/* Todo List */}
         <div className="space-y-3">
           {filteredTodos.map((todo) => {
             const dueStatus = getDueStatus(todo.due_date);
@@ -498,7 +481,6 @@ export default function TodosPage() {
                     )}
                   </div>
 
-                  {/* Action Buttons */}
                   <div className="flex gap-2 flex-shrink-0">
                     {isEditing ? (
                       <>
@@ -527,7 +509,6 @@ export default function TodosPage() {
                           <Edit2 className="w-5 h-5 text-yellow-400" />
                         </button>
                         
-                        {/* Text-to-Speech Button */}
                         <button
                           onClick={() => speakText(todo.title, todo.id)}
                           className={`p-2 rounded-lg transition ${
@@ -540,7 +521,6 @@ export default function TodosPage() {
                           <Volume2 className={`w-5 h-5 ${isSpeaking ? 'text-purple-300' : 'text-purple-400'}`} />
                         </button>
 
-                        {/* Translation Button with Dropdown */}
                         <div className="relative">
                           <button
                             onClick={() => setShowTranslateMenu(showMenu ? null : todo.id)}
@@ -556,18 +536,31 @@ export default function TodosPage() {
                           </button>
 
                           {showMenu && (
-                            <div className="absolute right-0 top-full mt-2 bg-black/90 backdrop-blur-xl rounded-lg border border-white/20 shadow-2xl z-50 min-w-[140px]">
-                              {LANGUAGES.map((lang) => (
-                                <button
-                                  key={lang.code}
-                                  onClick={() => translateTodo(todo.id, lang.code)}
-                                  className="w-full flex items-center gap-2 px-4 py-2 hover:bg-white/10 transition text-left text-sm"
-                                >
-                                  <span className="text-lg">{lang.flag}</span>
-                                  <span className="text-white">{lang.name}</span>
-                                </button>
-                              ))}
-                            </div>
+                            <>
+                              <div 
+                                className="fixed inset-0 z-[60]" 
+                                onClick={() => setShowTranslateMenu(null)}
+                              />
+                              <div className="absolute right-0 bottom-full mb-2 bg-black/95 backdrop-blur-xl rounded-lg border border-white/20 shadow-2xl z-[70] min-w-[140px]">
+                                {[
+                                  { code: 'ur', name: 'Urdu', flag: '🇵🇰' },
+                                  { code: 'hi', name: 'Hindi', flag: '🇮🇳' },
+                                  { code: 'en', name: 'English', flag: '🇺🇸' },
+                                  { code: 'es', name: 'Spanish', flag: '🇪🇸' },
+                                  { code: 'ja', name: 'Japanese', flag: '🇯🇵' },
+                                  { code: 'fr', name: 'French', flag: '🇫🇷' }
+                                ].map((lang) => (
+                                  <button
+                                    key={lang.code}
+                                    onClick={() => translateTodo(todo.id, lang.code)}
+                                    className="w-full flex items-center gap-2 px-4 py-2 hover:bg-white/10 transition text-left text-sm first:rounded-t-lg last:rounded-b-lg"
+                                  >
+                                    <span className="text-lg">{lang.flag}</span>
+                                    <span className="text-white">{lang.name}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            </>
                           )}
                         </div>
 
