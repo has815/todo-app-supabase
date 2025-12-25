@@ -3,12 +3,12 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { User } from '@supabase/supabase-js';
-import { LogOut, Plus, Trash2, Calendar, CheckCircle, Circle, Edit2, X, Check, Globe } from 'lucide-react';
+import { LogOut, Plus, Trash2, Calendar, CheckCircle, Circle, Edit2, X, Check, Volume2, Globe } from 'lucide-react';
 import { requestNotificationPermission, startNotificationChecker } from '../../lib/notifications';
 
 interface Todo {
   id: string;
-  title: string;
+  task: string;
   completed: boolean;
   due_date: string | null;
   user_id: string;
@@ -21,6 +21,14 @@ interface Profile {
   avatar_url?: string;
 }
 
+const LANGUAGES = [
+  { code: 'ur', name: 'Urdu', flag: '🇵🇰', voice: 'ur-PK' },
+  { code: 'hi', name: 'Hindi', flag: '🇮🇳', voice: 'hi-IN' },
+  { code: 'en', name: 'English', flag: '🇺🇸', voice: 'en-US' },
+  { code: 'es', name: 'Spanish', flag: '🇪🇸', voice: 'es-ES' },
+  { code: 'ja', name: 'Japanese', flag: '🇯🇵', voice: 'ja-JP' },
+];
+
 export default function TodosPage() {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -31,16 +39,16 @@ export default function TodosPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   const [loading, setLoading] = useState(true);
+  const [speakingId, setSpeakingId] = useState<string | null>(null);
+  const [translatingId, setTranslatingId] = useState<string | null>(null);
+  const [showTranslateMenu, setShowTranslateMenu] = useState<string | null>(null);
 
   useEffect(() => {
     checkUser();
     fetchTodos();
-    
-    // Request notification permission
     requestNotificationPermission();
   }, []);
 
-  // Notification checker setup
   useEffect(() => {
     if (user && todos.length > 0) {
       const cleanup = startNotificationChecker(todos, user.email || '');
@@ -69,7 +77,6 @@ export default function TodosPage() {
       if (data) {
         setProfile(data);
       } else {
-        // If no profile, use Google avatar from user metadata
         const { data: { user } } = await supabase.auth.getUser();
         if (user?.user_metadata?.avatar_url) {
           setProfile({
@@ -105,35 +112,66 @@ export default function TodosPage() {
     }
   };
 
-  const translateText = async (text: string) => {
+  // Text-to-Speech Function
+  const speakText = (text: string, todoId: string) => {
+    if (speakingId === todoId) {
+      // Stop speaking if already speaking this task
+      window.speechSynthesis.cancel();
+      setSpeakingId(null);
+      return;
+    }
+
+    // Stop any ongoing speech
+    window.speechSynthesis.cancel();
+    
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 0.9;
+    utterance.pitch = 1;
+    utterance.volume = 1;
+
+    utterance.onstart = () => setSpeakingId(todoId);
+    utterance.onend = () => setSpeakingId(null);
+    utterance.onerror = () => setSpeakingId(null);
+
+    window.speechSynthesis.speak(utterance);
+  };
+
+  // Translation Function
+  const translateText = async (text: string, targetLang: string): Promise<string> => {
     try {
       const response = await fetch(
-        `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=${encodeURIComponent(text)}`
+        `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(text)}`
       );
       const data = await response.json();
       return data[0][0][0];
-    } catch {
-      return text + ' [EN]';
+    } catch (error) {
+      console.error('Translation error:', error);
+      return text;
     }
   };
 
-  const translateTodo = async (todoId: string) => {
+  const translateTodo = async (todoId: string, targetLang: string) => {
     const todo = todos.find(t => t.id === todoId);
     if (!todo) return;
 
-    const translated = await translateText(todo.title);
-    
+    setTranslatingId(todoId);
+    setShowTranslateMenu(null);
+
     try {
+      const translated = await translateText(todo.task, targetLang);
+      
       const { error } = await supabase
         .from('todos')
-        .update({ title: translated })
+        .update({ task: translated })
         .eq('id', todoId);
 
       if (!error) {
-        setTodos(todos.map(t => t.id === todoId ? { ...t, title: translated } : t));
+        setTodos(todos.map(t => t.id === todoId ? { ...t, task: translated } : t));
       }
     } catch (error) {
       console.error('Error translating:', error);
+    } finally {
+      setTranslatingId(null);
     }
   };
 
@@ -143,7 +181,7 @@ export default function TodosPage() {
 
     try {
       const todoData = {
-        title: newTodo.trim(),
+        task: newTodo.trim(),
         completed: false,
         user_id: user.id,
         due_date: dueDate || null
@@ -164,6 +202,9 @@ export default function TodosPage() {
         setTodos([data, ...todos]);
         setNewTodo('');
         setDueDate('');
+        
+        // Speak the newly added task
+        setTimeout(() => speakText(data.task, data.id), 300);
       }
     } catch (error: any) {
       console.error('Error adding todo:', error);
@@ -203,7 +244,7 @@ export default function TodosPage() {
 
   const startEdit = (todo: Todo) => {
     setEditingId(todo.id);
-    setEditText(todo.title);
+    setEditText(todo.task);
   };
 
   const saveEdit = async (id: string) => {
@@ -212,11 +253,11 @@ export default function TodosPage() {
     try {
       const { error } = await supabase
         .from('todos')
-        .update({ title: editText })
+        .update({ task: editText })
         .eq('id', id);
 
       if (!error) {
-        setTodos(todos.map(t => t.id === id ? { ...t, title: editText } : t));
+        setTodos(todos.map(t => t.id === id ? { ...t, task: editText } : t));
         setEditingId(null);
         setEditText('');
       }
@@ -285,19 +326,9 @@ export default function TodosPage() {
               <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
                 Todo App
               </h1>
-              <div className="hidden md:flex gap-6">
-                <button className="text-white/80 hover:text-white transition flex items-center gap-2 text-sm">
-                  <CheckCircle className="w-4 h-4" />
-                  Tasks
-                </button>
-                <button className="text-white/60 hover:text-white/80 transition text-sm">
-                  Profile
-                </button>
-              </div>
             </div>
             
             <div className="flex items-center gap-2 sm:gap-4">
-              {/* User Profile */}
               {user && (
                 <div className="flex items-center gap-3 px-3 py-2 rounded-xl bg-gradient-to-r from-purple-600/20 to-pink-600/20 backdrop-blur-lg border border-white/10">
                   {profile?.avatar_url || user.user_metadata?.avatar_url ? (
@@ -409,6 +440,9 @@ export default function TodosPage() {
           {filteredTodos.map((todo) => {
             const dueStatus = getDueStatus(todo.due_date);
             const isEditing = editingId === todo.id;
+            const isSpeaking = speakingId === todo.id;
+            const isTranslating = translatingId === todo.id;
+            const showMenu = showTranslateMenu === todo.id;
 
             return (
               <div
@@ -447,7 +481,7 @@ export default function TodosPage() {
                     ) : (
                       <div>
                         <p className={`text-white font-medium break-words ${todo.completed ? 'line-through opacity-60' : ''}`}>
-                          {todo.title}
+                          {todo.task}
                         </p>
                         {todo.due_date && (
                           <div className="flex items-center gap-2 mt-1 flex-wrap">
@@ -494,13 +528,51 @@ export default function TodosPage() {
                         >
                           <Edit2 className="w-5 h-5 text-yellow-400" />
                         </button>
+                        
+                        {/* Text-to-Speech Button */}
                         <button
-                          onClick={() => translateTodo(todo.id)}
-                          className="p-2 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 transition"
-                          title="Translate to English"
+                          onClick={() => speakText(todo.task, todo.id)}
+                          className={`p-2 rounded-lg transition ${
+                            isSpeaking 
+                              ? 'bg-purple-600/40 animate-pulse' 
+                              : 'bg-purple-600/20 hover:bg-purple-600/30'
+                          }`}
+                          title="Read aloud"
                         >
-                          <Globe className="w-5 h-5 text-blue-400" />
+                          <Volume2 className={`w-5 h-5 ${isSpeaking ? 'text-purple-300' : 'text-purple-400'}`} />
                         </button>
+
+                        {/* Translation Button with Dropdown */}
+                        <div className="relative">
+                          <button
+                            onClick={() => setShowTranslateMenu(showMenu ? null : todo.id)}
+                            disabled={isTranslating}
+                            className={`p-2 rounded-lg transition ${
+                              isTranslating
+                                ? 'bg-blue-600/40 cursor-wait'
+                                : 'bg-blue-600/20 hover:bg-blue-600/30'
+                            }`}
+                            title="Translate"
+                          >
+                            <Globe className={`w-5 h-5 text-blue-400 ${isTranslating ? 'animate-spin' : ''}`} />
+                          </button>
+
+                          {showMenu && (
+                            <div className="absolute right-0 top-full mt-2 bg-black/90 backdrop-blur-xl rounded-lg border border-white/20 shadow-2xl z-50 min-w-[140px]">
+                              {LANGUAGES.map((lang) => (
+                                <button
+                                  key={lang.code}
+                                  onClick={() => translateTodo(todo.id, lang.code)}
+                                  className="w-full flex items-center gap-2 px-4 py-2 hover:bg-white/10 transition text-left text-sm"
+                                >
+                                  <span className="text-lg">{lang.flag}</span>
+                                  <span className="text-white">{lang.name}</span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
                         <button
                           onClick={() => deleteTodo(todo.id)}
                           className="p-2 rounded-lg bg-red-600/20 hover:bg-red-600/30 transition"

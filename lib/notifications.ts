@@ -1,6 +1,6 @@
 type Todo = {
   id: string;
-  title: string;
+  task: string;
   due_date: string | null;
   completed: boolean;
 };
@@ -61,7 +61,7 @@ export function checkUpcomingTodos(todos: Todo[], userEmail: string) {
 
   if (upcomingTodos.length > 0) {
     upcomingTodos.forEach(todo => {
-      sendNotification('⏰ Task Due in 1 Hour!', todo.title);
+      sendNotification('⏰ Task Due in 1 Hour!', todo.task);
       
       // Send email
       fetch('/api/send-reminder', {
@@ -69,7 +69,7 @@ export function checkUpcomingTodos(todos: Todo[], userEmail: string) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: userEmail,
-          todoTitle: todo.title,
+          todoTask: todo.task,
           dueDate: todo.due_date,
         }),
       }).catch(console.error);
