@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { User } from '@supabase/supabase-js';
 import { LogOut, Plus, Trash2, Calendar, CheckCircle, Circle, Edit2, X, Check, Globe } from 'lucide-react';
+import { requestNotificationPermission, startNotificationChecker } from '../../lib/notifications';
 
 interface Todo {
   id: string;
@@ -34,7 +35,18 @@ export default function TodosPage() {
   useEffect(() => {
     checkUser();
     fetchTodos();
+    
+    // Request notification permission
+    requestNotificationPermission();
   }, []);
+
+  // Notification checker setup
+  useEffect(() => {
+    if (user && todos.length > 0) {
+      const cleanup = startNotificationChecker(todos, user.email || '');
+      return cleanup;
+    }
+  }, [todos, user]);
 
   const checkUser = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -294,7 +306,6 @@ export default function TodosPage() {
                       alt="Profile" 
                       className="w-8 h-8 rounded-full object-cover border-2 border-purple-400"
                       onError={(e) => {
-                        // Fallback to initials if image fails to load
                         e.currentTarget.style.display = 'none';
                         e.currentTarget.nextElementSibling?.classList.remove('hidden');
                       }}
