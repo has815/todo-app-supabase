@@ -8,11 +8,12 @@ import { requestNotificationPermission, startNotificationChecker } from '../../l
 
 interface Todo {
   id: string;
-  title: string;
+  title: string;  // Changed from "task" to "title"
   completed: boolean;
   due_date: string | null;
   user_id: string;
   created_at: string;
+  tags: string[];
 }
 
 interface Profile {
@@ -20,15 +21,13 @@ interface Profile {
   job_title: string;
   avatar_url?: string;
 }
-const COMMON_TAGS = [
-  { label: 'Work', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
-  { label: 'Personal', color: 'bg-purple-500/20 text-purple-400 border-purple-500/30' },
-  { label: 'Urgent', color: 'bg-red-500/20 text-red-400 border-red-500/30' },
-  { label: 'Important', color: 'bg-orange-500/20 text-orange-400 border-orange-500/30' },
-  { label: 'Shopping', color: 'bg-green-500/20 text-green-400 border-green-500/30' },
-  { label: 'Health', color: 'bg-pink-500/20 text-pink-400 border-pink-500/30' },
-  { label: 'Learning', color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' },
-  { label: 'Meeting', color: 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30' },
+
+const LANGUAGES = [
+  { code: 'ur', name: 'Urdu', flag: '🇵🇰', voice: 'ur-PK' },
+  { code: 'hi', name: 'Hindi', flag: '🇮🇳', voice: 'hi-IN' },
+  { code: 'en', name: 'English', flag: '🇺🇸', voice: 'en-US' },
+  { code: 'es', name: 'Spanish', flag: '🇪🇸', voice: 'es-ES' },
+  { code: 'ja', name: 'Japanese', flag: '🇯🇵', voice: 'ja-JP' },
 ];
 
 export default function TodosPage() {
@@ -44,13 +43,19 @@ export default function TodosPage() {
   const [speakingId, setSpeakingId] = useState<string | null>(null);
   const [translatingId, setTranslatingId] = useState<string | null>(null);
   const [showTranslateMenu, setShowTranslateMenu] = useState<string | null>(null);
-  
-  // Tags states
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [showTagMenu, setShowTagMenu] = useState<string | null>(null);
-  const [customTag, setCustomTag] = useState('');
-  const [filterTag, setFilterTag] = useState<string | null>(null);
-  
+  const [showTagMenu, setShowTagMenu] = useState(false);
+  const [tagFilter, setTagFilter] = useState<string | null>(null);
+
+  const predefinedTags = [
+    { name: 'Work', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
+    { name: 'Personal', color: 'bg-green-500/20 text-green-400 border-green-500/30' },
+    { name: 'Urgent', color: 'bg-red-500/20 text-red-400 border-red-500/30' },
+    { name: 'Important', color: 'bg-orange-500/20 text-orange-400 border-orange-500/30' },
+    { name: 'Shopping', color: 'bg-purple-500/20 text-purple-400 border-purple-500/30' },
+    { name: 'Health', color: 'bg-pink-500/20 text-pink-400 border-pink-500/30' },
+  ];
+
   useEffect(() => {
     checkUser();
     fetchTodos();
@@ -120,13 +125,16 @@ export default function TodosPage() {
     }
   };
 
+  // Text-to-Speech Function
   const speakText = (text: string, todoId: string) => {
     if (speakingId === todoId) {
+      // Stop speaking if already speaking this task
       window.speechSynthesis.cancel();
       setSpeakingId(null);
       return;
     }
 
+    // Stop any ongoing speech
     window.speechSynthesis.cancel();
     
     const utterance = new SpeechSynthesisUtterance(text);
@@ -141,6 +149,7 @@ export default function TodosPage() {
     window.speechSynthesis.speak(utterance);
   };
 
+  // Translation Function
   const translateText = async (text: string, targetLang: string): Promise<string> => {
     try {
       const response = await fetch(
@@ -185,7 +194,7 @@ export default function TodosPage() {
 
     try {
       const todoData = {
-        title: newTodo.trim(),
+        task: newTodo.trim(),
         completed: false,
         user_id: user.id,
         due_date: dueDate || null
@@ -207,7 +216,8 @@ export default function TodosPage() {
         setNewTodo('');
         setDueDate('');
         
-        setTimeout(() => speakText(data.title, data.id), 300);
+        // Speak the newly added task
+        setTimeout(() => speakText(data.task, data.id), 300);
       }
     } catch (error: any) {
       console.error('Error adding todo:', error);
@@ -280,9 +290,18 @@ export default function TodosPage() {
   };
 
   const getFilteredTodos = () => {
-    if (filter === 'active') return todos.filter(t => !t.completed);
-    if (filter === 'completed') return todos.filter(t => t.completed);
-    return todos;
+    let filtered = todos;
+    
+    // Filter by completion status
+    if (filter === 'active') filtered = filtered.filter(t => !t.completed);
+    if (filter === 'completed') filtered = filtered.filter(t => t.completed);
+    
+    // Filter by tag
+    if (tagFilter) {
+      filtered = filtered.filter(t => t.tags && t.tags.includes(tagFilter));
+    }
+    
+    return filtered;
   };
 
   const getDueStatus = (dueDate: string | null) => {
@@ -296,6 +315,14 @@ export default function TodosPage() {
     if (hours < 0) return { status: 'overdue', color: 'text-red-400', icon: '⚠️', label: 'Overdue' };
     if (hours < 24) return { status: 'today', color: 'text-orange-400', icon: '📅', label: 'Today' };
     return { status: 'upcoming', color: 'text-purple-400', icon: '📆', label: 'Upcoming' };
+  };
+
+  const toggleTag = (tagName: string) => {
+    setSelectedTags(prev => 
+      prev.includes(tagName) 
+        ? prev.filter(t => t !== tagName)
+        : [...prev, tagName]
+    );
   };
 
   const filteredTodos = getFilteredTodos();
@@ -321,6 +348,7 @@ export default function TodosPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-indigo-900 to-blue-900">
+      {/* Navbar */}
       <nav className="bg-black/30 backdrop-blur-xl border-b border-white/10 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
           <div className="flex justify-between items-center">
@@ -368,7 +396,9 @@ export default function TodosPage() {
         </div>
       </nav>
 
+      {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+        {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
           {[
             { label: 'Total Tasks', value: stats.total, color: 'from-purple-600 to-purple-800', icon: '📋' },
@@ -386,53 +416,110 @@ export default function TodosPage() {
           ))}
         </div>
 
+        {/* Add Task Card */}
         <form onSubmit={addTodo} className="bg-black/30 backdrop-blur-xl rounded-xl sm:rounded-2xl p-4 sm:p-6 mb-4 sm:mb-6 border border-white/10 shadow-2xl">
-          <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
-            <input
-              type="text"
-              value={newTodo}
-              onChange={(e) => setNewTodo(e.target.value)}
-              placeholder="Add a new task..."
-              className="flex-1 px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-purple-500 transition"
-            />
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+              <input
+                type="text"
+                value={newTodo}
+                onChange={(e) => setNewTodo(e.target.value)}
+                placeholder="Add a new task..."
+                className="flex-1 px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-purple-500 transition"
+              />
 
-            <input
-              type="datetime-local"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-              className="px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500 transition text-sm"
-            />
+              <input
+                type="datetime-local"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                className="px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500 transition text-sm"
+              />
 
-            <button
-              type="submit"
-              className="px-4 sm:px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 rounded-xl text-white font-medium flex items-center justify-center gap-2 transition shadow-lg"
-            >
-              <Plus className="w-5 h-5" />
-              <span>Add Task</span>
-            </button>
+              <button
+                type="submit"
+                className="px-4 sm:px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 rounded-xl text-white font-medium flex items-center justify-center gap-2 transition shadow-lg"
+              >
+                <Plus className="w-5 h-5" />
+                <span>Add Task</span>
+              </button>
+            </div>
+
+            {/* Tags Selection */}
+            <div className="flex flex-wrap gap-2">
+              {predefinedTags.map((tag) => (
+                <button
+                  key={tag.name}
+                  type="button"
+                  onClick={() => toggleTag(tag.name)}
+                  className={`px-3 py-1.5 rounded-lg border text-sm font-medium transition ${
+                    selectedTags.includes(tag.name)
+                      ? tag.color
+                      : 'bg-white/5 text-white/40 border-white/10 hover:bg-white/10'
+                  }`}
+                >
+                  🏷️ {tag.name}
+                </button>
+              ))}
+            </div>
           </div>
         </form>
 
-        <div className="flex gap-2 mb-4 sm:mb-6 overflow-x-auto">
-          {[
-            { key: 'all', label: 'All', count: stats.total },
-            { key: 'active', label: 'Active', count: stats.active },
-            { key: 'completed', label: 'Completed', count: stats.completed }
-          ].map((f) => (
+        {/* Filter Tabs */}
+        <div className="flex gap-2 mb-4 sm:mb-6 overflow-x-auto pb-2">
+          {/* Status Filters */}
+          <div className="flex gap-2">
+            {[
+              { key: 'all', label: 'All', count: stats.total },
+              { key: 'active', label: 'Active', count: stats.active },
+              { key: 'completed', label: 'Completed', count: stats.completed }
+            ].map((f) => (
+              <button
+                key={f.key}
+                onClick={() => setFilter(f.key as any)}
+                className={`px-4 sm:px-6 py-2 rounded-xl font-medium transition whitespace-nowrap text-sm ${
+                  filter === f.key
+                    ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg'
+                    : 'bg-white/10 text-white/60 hover:bg-white/20'
+                }`}
+              >
+                {f.label} ({f.count})
+              </button>
+            ))}
+          </div>
+
+          {/* Tag Filters */}
+          <div className="flex gap-2 ml-4 pl-4 border-l border-white/20">
             <button
-              key={f.key}
-              onClick={() => setFilter(f.key as any)}
-              className={`px-4 sm:px-6 py-2 rounded-xl font-medium transition whitespace-nowrap text-sm ${
-                filter === f.key
-                  ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg'
+              onClick={() => setTagFilter(null)}
+              className={`px-4 py-2 rounded-xl font-medium transition whitespace-nowrap text-sm ${
+                !tagFilter
+                  ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg'
                   : 'bg-white/10 text-white/60 hover:bg-white/20'
               }`}
             >
-              {f.label} ({f.count})
+              All Tags
             </button>
-          ))}
+            {predefinedTags.map((tag) => {
+              const count = todos.filter(t => t.tags && t.tags.includes(tag.name)).length;
+              if (count === 0) return null;
+              return (
+                <button
+                  key={tag.name}
+                  onClick={() => setTagFilter(tagFilter === tag.name ? null : tag.name)}
+                  className={`px-4 py-2 rounded-xl font-medium transition whitespace-nowrap text-sm border ${
+                    tagFilter === tag.name
+                      ? tag.color
+                      : 'bg-white/10 text-white/60 border-white/10 hover:bg-white/20'
+                  }`}
+                >
+                  🏷️ {tag.name} ({count})
+                </button>
+              );
+            })}
+          </div>
         </div>
 
+        {/* Todo List */}
         <div className="space-y-3">
           {filteredTodos.map((todo) => {
             const dueStatus = getDueStatus(todo.due_date);
@@ -480,6 +567,26 @@ export default function TodosPage() {
                         <p className={`text-white font-medium break-words ${todo.completed ? 'line-through opacity-60' : ''}`}>
                           {todo.title}
                         </p>
+                        
+                        {/* Tags Display */}
+                        {todo.tags && todo.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mt-2">
+                            {todo.tags.map((tagName) => {
+                              const tagConfig = predefinedTags.find(t => t.name === tagName);
+                              return (
+                                <span
+                                  key={tagName}
+                                  className={`text-xs px-2 py-0.5 rounded border ${
+                                    tagConfig?.color || 'bg-white/10 text-white/60 border-white/20'
+                                  }`}
+                                >
+                                  🏷️ {tagName}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
+
                         {todo.due_date && (
                           <div className="flex items-center gap-2 mt-1 flex-wrap">
                             <Calendar className={`w-3 h-3 ${dueStatus.color}`} />
@@ -497,6 +604,7 @@ export default function TodosPage() {
                     )}
                   </div>
 
+                  {/* Action Buttons */}
                   <div className="flex gap-2 flex-shrink-0">
                     {isEditing ? (
                       <>
@@ -525,6 +633,7 @@ export default function TodosPage() {
                           <Edit2 className="w-5 h-5 text-yellow-400" />
                         </button>
                         
+                        {/* Text-to-Speech Button */}
                         <button
                           onClick={() => speakText(todo.title, todo.id)}
                           className={`p-2 rounded-lg transition ${
@@ -537,6 +646,7 @@ export default function TodosPage() {
                           <Volume2 className={`w-5 h-5 ${isSpeaking ? 'text-purple-300' : 'text-purple-400'}`} />
                         </button>
 
+                        {/* Translation Button with Dropdown */}
                         <div className="relative">
                           <button
                             onClick={() => setShowTranslateMenu(showMenu ? null : todo.id)}
@@ -552,31 +662,18 @@ export default function TodosPage() {
                           </button>
 
                           {showMenu && (
-                            <>
-                              <div 
-                                className="fixed inset-0 z-[60]" 
-                                onClick={() => setShowTranslateMenu(null)}
-                              />
-                              <div className="absolute right-0 bottom-full mb-2 bg-black/95 backdrop-blur-xl rounded-lg border border-white/20 shadow-2xl z-[70] min-w-[140px]">
-                                {[
-                                  { code: 'ur', name: 'Urdu', flag: '🇵🇰' },
-                                  { code: 'hi', name: 'Hindi', flag: '🇮🇳' },
-                                  { code: 'en', name: 'English', flag: '🇺🇸' },
-                                  { code: 'es', name: 'Spanish', flag: '🇪🇸' },
-                                  { code: 'ja', name: 'Japanese', flag: '🇯🇵' },
-                                  { code: 'fr', name: 'French', flag: '🇫🇷' }
-                                ].map((lang) => (
-                                  <button
-                                    key={lang.code}
-                                    onClick={() => translateTodo(todo.id, lang.code)}
-                                    className="w-full flex items-center gap-2 px-4 py-2 hover:bg-white/10 transition text-left text-sm first:rounded-t-lg last:rounded-b-lg"
-                                  >
-                                    <span className="text-lg">{lang.flag}</span>
-                                    <span className="text-white">{lang.name}</span>
-                                  </button>
-                                ))}
-                              </div>
-                            </>
+                            <div className="absolute right-0 top-full mt-2 bg-black/90 backdrop-blur-xl rounded-lg border border-white/20 shadow-2xl z-50 min-w-[140px]">
+                              {LANGUAGES.map((lang) => (
+                                <button
+                                  key={lang.code}
+                                  onClick={() => translateTodo(todo.id, lang.code)}
+                                  className="w-full flex items-center gap-2 px-4 py-2 hover:bg-white/10 transition text-left text-sm"
+                                >
+                                  <span className="text-lg">{lang.flag}</span>
+                                  <span className="text-white">{lang.name}</span>
+                                </button>
+                              ))}
+                            </div>
                           )}
                         </div>
 
