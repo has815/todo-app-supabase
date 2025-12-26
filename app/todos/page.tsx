@@ -664,7 +664,7 @@ export default function TodosPage() {
                           </button>
 
                           {showMenu && (
-                            <div className="absolute right-0 top-full mt-2 bg-black/90 backdrop-blur-xl rounded-lg border border-white/20 shadow-2xl z-50 min-w-[140px]">
+                            <div className="absolute right-0 top-full mt-2 bg-black/90 backdrop-blur-xl rounded-lg border border-white/20 shadow-2xl z-100 min-w-[140px]">
                               {LANGUAGES.map((lang) => (
                                 <button
                                   key={lang.code}
