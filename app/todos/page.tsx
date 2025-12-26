@@ -194,10 +194,11 @@ export default function TodosPage() {
 
     try {
       const todoData = {
-        task: newTodo.trim(),
+        title: newTodo.trim(),
         completed: false,
         user_id: user.id,
-        due_date: dueDate || null
+        due_date: dueDate || null,
+        tags: selectedTags
       };
 
       const { data, error } = await supabase
@@ -215,9 +216,10 @@ export default function TodosPage() {
         setTodos([data, ...todos]);
         setNewTodo('');
         setDueDate('');
+        setSelectedTags([]);
         
         // Speak the newly added task
-        setTimeout(() => speakText(data.task, data.id), 300);
+        setTimeout(() => speakText(data.title, data.id), 300);
       }
     } catch (error: any) {
       console.error('Error adding todo:', error);
