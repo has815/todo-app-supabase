@@ -125,7 +125,7 @@ export default function TodosPage() {
     }
   };
 
-  // ← YE NAYA speakText – Urdu ke liye tts.mp3.com.pk (perfect Urdu voice)
+  // ← YE NAYA speakText – Urdu ke liye Google TTS (perfect Urdu voice)
   const speakText = (text: string, todoId: string) => {
     if (speakingId === todoId) {
       window.speechSynthesis.cancel();
@@ -139,19 +139,16 @@ export default function TodosPage() {
     const isUrdu = /[\u0600-\u06FF]/.test(text);
 
     if (isUrdu) {
-      // tts.mp3.com.pk se Urdu voice generate karo
-      const audioUrl = `https://tts.mp3.com.pk/tts.php?text=${encodeURIComponent(text)}&lang=ur`;
-      const audio = new Audio(audioUrl);
-      audio.play().catch((err) => {
-        console.error('Urdu TTS play error:', err);
-        setSpeakingId(null);
-      });
-
+      // Google Translate TTS – real Urdu voice
+      const audio = new Audio(
+        `https://translate.google.com/translate_tts?ie=UTF-8&tl=ur&client=tw-ob&q=${encodeURIComponent(text)}`
+      );
+      audio.play();
       setSpeakingId(todoId);
 
       audio.onended = () => setSpeakingId(null);
       audio.onerror = () => {
-        console.error('Urdu TTS load error');
+        console.log('Urdu TTS error');
         setSpeakingId(null);
       };
     } else {
@@ -505,10 +502,10 @@ export default function TodosPage() {
                   ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg'
                   : 'bg-white/10 text-white/60 hover:bg-white/20'
                   }`}
-                >
-                  {f.label} ({f.count})
-                </button>
-              ))}
+              >
+                {f.label} ({f.count})
+              </button>
+            ))}
           </div>
 
           <div className="flex gap-2 ml-4 pl-4 border-l border-white/20">
