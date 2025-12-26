@@ -15,7 +15,7 @@ interface Todo {
   user_id: string;
   created_at: string;
   tags: string[];
-  image_url?: string | null; // ← Naya field image URL ke liye
+  image_url?: string | null; // ← Naya field image ke liye
 }
 
 interface Profile {
@@ -48,7 +48,7 @@ export default function TodosPage() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [tagFilter, setTagFilter] = useState<string | null>(null);
 
-  // ← Image upload ke liye states
+  // ← Image upload states
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -213,7 +213,7 @@ export default function TodosPage() {
     }
   };
 
-  // ← Image change handler
+  // ← Image handlers
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -227,7 +227,7 @@ export default function TodosPage() {
     setImagePreview(null);
   };
 
-  // ← Updated addTodo with image upload
+  // ← addTodo with image upload
   const addTodo = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!newTodo.trim() || !user) return;
@@ -239,7 +239,7 @@ export default function TodosPage() {
 
       if (selectedImage) {
         const fileExt = selectedImage.name.split('.').pop();
-        const fileName = `${user.id}/${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
+        const fileName = `${user.id}/${Date.now()}.${fileExt}`;
 
         const { error: uploadError } = await supabase.storage
           .from('task-images')
@@ -247,11 +247,11 @@ export default function TodosPage() {
 
         if (uploadError) throw uploadError;
 
-        const { data: publicUrlData } = supabase.storage
+        const { data: urlData } = supabase.storage
           .from('task-images')
           .getPublicUrl(fileName);
 
-        imageUrl = publicUrlData.publicUrl;
+        imageUrl = urlData.publicUrl;
       }
 
       const todoData = {
@@ -416,10 +416,8 @@ export default function TodosPage() {
             </div>
 
             <div className="flex items-center gap-2 sm:gap-4">
-              {/* Profile and logout same */}
               {user && (
                 <div className="flex items-center gap-3 px-3 py-2 rounded-xl bg-gradient-to-r from-purple-600/20 to-pink-600/20 backdrop-blur-lg border border-white/10">
-                  {/* profile image and name same */}
                   {profile?.avatar_url || user.user_metadata?.avatar_url ? (
                     <img
                       src={profile?.avatar_url || user.user_metadata?.avatar_url}
@@ -456,7 +454,22 @@ export default function TodosPage() {
       </nav>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-        {/* Stats cards same */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
+          {[
+            { label: 'Total Tasks', value: stats.total, color: 'from-purple-600 to-purple-800', icon: '📋' },
+            { label: 'Active', value: stats.active, color: 'from-blue-600 to-blue-800', icon: '⚡' },
+            { label: 'Completed', value: stats.completed, color: 'from-green-600 to-green-800', icon: '✅' },
+            { label: 'Due Today', value: stats.dueToday, color: 'from-orange-600 to-orange-800', icon: '🔔' }
+          ].map((stat, i) => (
+            <div key={i} className={`bg-gradient-to-br ${stat.color} rounded-xl sm:rounded-2xl p-4 sm:p-6 backdrop-blur-lg border border-white/10 shadow-xl hover:scale-105 transition-transform`}>
+              <div className="flex justify-between items-start mb-2">
+                <p className="text-white/80 text-xs sm:text-sm font-medium">{stat.label}</p>
+                <span className="text-xl sm:text-2xl">{stat.icon}</span>
+              </div>
+              <p className="text-3xl sm:text-4xl font-bold text-white">{stat.value}</p>
+            </div>
+          ))}
+        </div>
 
         <form onSubmit={addTodo} className="bg-black/30 backdrop-blur-xl rounded-xl sm:rounded-2xl p-4 sm:p-6 mb-4 sm:mb-6 border border-white/10 shadow-2xl">
           <div className="flex flex-col gap-3">
@@ -486,7 +499,7 @@ export default function TodosPage() {
               </button>
             </div>
 
-            {/* ← NAYA IMAGE UPLOAD SECTION */}
+            {/* ← IMAGE UPLOAD SECTION – form ke andar hi hai */}
             <div className="flex flex-col gap-3">
               <label className="text-white/80 text-sm font-medium">Attach Image (optional)</label>
               <div className="flex items-center gap-3">
@@ -503,8 +516,8 @@ export default function TodosPage() {
 
                 {imagePreview && (
                   <button
-                    onClick={removeImage}
                     type="button"
+                    onClick={removeImage}
                     className="p-2 bg-red-600/20 hover:bg-red-600/30 rounded-lg transition"
                     title="Remove image"
                   >
@@ -592,7 +605,7 @@ export default function TodosPage() {
                           {todo.title}
                         </p>
 
-                        {/* ← IMAGE SHOW KAR RAHA HAI */}
+                        {/* ← IMAGE SHOW HOGI */}
                         {todo.image_url && (
                           <div className="mt-4">
                             <img
@@ -639,7 +652,6 @@ export default function TodosPage() {
 
                   {/* Actions same */}
                   <div className="flex gap-2 flex-shrink-0">
-                    {/* Edit, Speak, Translate, Delete same */}
                     {isEditing ? (
                       <>
                         <button onClick={() => saveEdit(todo.id)} className="p-2 rounded-lg bg-green-600/20 hover:bg-green-600/30 transition" title="Save">
