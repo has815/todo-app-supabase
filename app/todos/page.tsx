@@ -6,6 +6,17 @@ import { User } from '@supabase/supabase-js';
 import { LogOut, Plus, Trash2, Calendar, CheckCircle, Circle, Edit2, X, Check, Volume2, Globe } from 'lucide-react';
 import { requestNotificationPermission, startNotificationChecker } from '../../lib/notifications';
 
+// ← YE ADD KAR DO – TypeScript ko batao ke responsiveVoice exist kar sakta hai (error gayab ho jayega)
+declare global {
+  interface Window {
+    responsiveVoice?: {
+      speak(text: string, voice: string, params?: any): void;
+      cancel(): void;
+      isPlaying?(): boolean;
+    };
+  }
+}
+
 interface Todo {
   id: string;
   title: string;
@@ -125,35 +136,35 @@ export default function TodosPage() {
     }
   };
 
-  // ← YE NAYA speakText – Urdu ke liye tts.mp3.com.pk (perfect Urdu voice)
+  // ← FINAL speakText – Urdu ke liye ResponsiveVoice (natural female Urdu voice)
   const speakText = (text: string, todoId: string) => {
     if (speakingId === todoId) {
+      if (window.responsiveVoice) {
+        window.responsiveVoice.cancel();
+      }
       window.speechSynthesis.cancel();
       setSpeakingId(null);
       return;
     }
 
+    if (window.responsiveVoice) {
+      window.responsiveVoice.cancel();
+    }
     window.speechSynthesis.cancel();
+
+    setSpeakingId(todoId);
 
     // Urdu script detect karo
     const isUrdu = /[\u0600-\u06FF]/.test(text);
 
-    if (isUrdu) {
-      // tts.mp3.com.pk se Urdu voice generate karo
-      const audioUrl = `https://tts.mp3.com.pk/tts.php?text=${encodeURIComponent(text)}&lang=ur`;
-      const audio = new Audio(audioUrl);
-      audio.play().catch((err) => {
-        console.error('Urdu TTS play error:', err);
-        setSpeakingId(null);
+    if (isUrdu && window.responsiveVoice) {
+      window.responsiveVoice.speak(text, "Urdu Female", {
+        rate: 0.9,
+        pitch: 1,
+        volume: 1,
+        onend: () => setSpeakingId(null),
+        onerror: () => setSpeakingId(null)
       });
-
-      setSpeakingId(todoId);
-
-      audio.onended = () => setSpeakingId(null);
-      audio.onerror = () => {
-        console.error('Urdu TTS load error');
-        setSpeakingId(null);
-      };
     } else {
       // Baaki languages ke liye browser voice
       const utterance = new SpeechSynthesisUtterance(text);
@@ -505,10 +516,10 @@ export default function TodosPage() {
                   ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg'
                   : 'bg-white/10 text-white/60 hover:bg-white/20'
                   }`}
-                >
-                  {f.label} ({f.count})
-                </button>
-              ))}
+              >
+                {f.label} ({f.count})
+              </button>
+            ))}
           </div>
 
           <div className="flex gap-2 ml-4 pl-4 border-l border-white/20">
