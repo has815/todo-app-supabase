@@ -9,7 +9,7 @@ import { requestNotificationPermission, startNotificationChecker } from '../../l
 interface Todo {
   id: string;
   title: string;
-  original_title?: string | null; // ← Yeh naya field hai original English ke liye
+  original_title?: string | null;
   completed: boolean;
   due_date: string | null;
   user_id: string;
@@ -125,6 +125,7 @@ export default function TodosPage() {
     }
   };
 
+  // ← YE NAYA speakText – Urdu ke liye Google TTS (perfect Urdu voice)
   const speakText = (text: string, todoId: string) => {
     if (speakingId === todoId) {
       window.speechSynthesis.cancel();
@@ -134,16 +135,35 @@ export default function TodosPage() {
 
     window.speechSynthesis.cancel();
 
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 0.9;
-    utterance.pitch = 1;
-    utterance.volume = 1;
+    // Urdu script detect karo
+    const isUrdu = /[\u0600-\u06FF]/.test(text);
 
-    utterance.onstart = () => setSpeakingId(todoId);
-    utterance.onend = () => setSpeakingId(null);
-    utterance.onerror = () => setSpeakingId(null);
+    if (isUrdu) {
+      // Google Translate TTS – real Urdu voice
+      const audio = new Audio(
+        `https://translate.google.com/translate_tts?ie=UTF-8&tl=ur&client=tw-ob&q=${encodeURIComponent(text)}`
+      );
+      audio.play();
+      setSpeakingId(todoId);
 
-    window.speechSynthesis.speak(utterance);
+      audio.onended = () => setSpeakingId(null);
+      audio.onerror = () => {
+        console.log('Urdu TTS error');
+        setSpeakingId(null);
+      };
+    } else {
+      // Baaki languages ke liye browser voice
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 0.9;
+      utterance.pitch = 1;
+      utterance.volume = 1;
+
+      utterance.onstart = () => setSpeakingId(todoId);
+      utterance.onend = () => setSpeakingId(null);
+      utterance.onerror = () => setSpeakingId(null);
+
+      window.speechSynthesis.speak(utterance);
+    }
   };
 
   const translateText = async (text: string, targetLang: string): Promise<string> => {
@@ -159,7 +179,6 @@ export default function TodosPage() {
     }
   };
 
-  // Updated translateTodo with original_title support
   const translateTodo = async (todoId: string, targetLang: string) => {
     const todo = todos.find(t => t.id === todoId);
     if (!todo) return;
@@ -171,13 +190,10 @@ export default function TodosPage() {
       let translated = todo.title;
 
       if (targetLang === 'en' && todo.original_title) {
-        // Wapas English → original text use karo
         translated = todo.original_title;
       } else {
-        // Translate karo
         translated = await translateText(todo.title, targetLang);
 
-        // Agar original_title nahi hai aur non-English mein ja rahe ho → save kar do
         if (!todo.original_title && targetLang !== 'en') {
           await supabase
             .from('todos')
@@ -641,7 +657,6 @@ export default function TodosPage() {
                           <Volume2 className={`w-5 h-5 ${isSpeaking ? 'text-purple-300' : 'text-purple-400'}`} />
                         </button>
 
-                        {/* Translation Button - Menu hamesha UPAR khulega */}
                         <div className="relative">
                           <button
                             onClick={() => setShowTranslateMenu(showMenu ? null : todo.id)}
