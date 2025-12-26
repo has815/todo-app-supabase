@@ -8,7 +8,8 @@ import { requestNotificationPermission, startNotificationChecker } from '../../l
 
 interface Todo {
   id: string;
-  title: string;  // Changed from "task" to "title"
+  title: string;
+  original_title?: string | null; // ← Yeh naya field hai original English ke liye
   completed: boolean;
   due_date: string | null;
   user_id: string;
@@ -23,9 +24,9 @@ interface Profile {
 }
 
 const LANGUAGES = [
+  { code: 'en', name: 'English', flag: '🇺🇸', voice: 'en-US' },
   { code: 'ur', name: 'Urdu', flag: '🇵🇰', voice: 'ur-PK' },
   { code: 'hi', name: 'Hindi', flag: '🇮🇳', voice: 'hi-IN' },
-  { code: 'en', name: 'English', flag: '🇺🇸', voice: 'en-US' },
   { code: 'es', name: 'Spanish', flag: '🇪🇸', voice: 'es-ES' },
   { code: 'ja', name: 'Japanese', flag: '🇯🇵', voice: 'ja-JP' },
 ];
@@ -44,7 +45,6 @@ export default function TodosPage() {
   const [translatingId, setTranslatingId] = useState<string | null>(null);
   const [showTranslateMenu, setShowTranslateMenu] = useState<string | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [showTagMenu, setShowTagMenu] = useState(false);
   const [tagFilter, setTagFilter] = useState<string | null>(null);
 
   const predefinedTags = [
@@ -125,16 +125,13 @@ export default function TodosPage() {
     }
   };
 
-  // Text-to-Speech Function
   const speakText = (text: string, todoId: string) => {
     if (speakingId === todoId) {
-      // Stop speaking if already speaking this task
       window.speechSynthesis.cancel();
       setSpeakingId(null);
       return;
     }
 
-    // Stop any ongoing speech
     window.speechSynthesis.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
@@ -149,7 +146,6 @@ export default function TodosPage() {
     window.speechSynthesis.speak(utterance);
   };
 
-  // Translation Function
   const translateText = async (text: string, targetLang: string): Promise<string> => {
     try {
       const response = await fetch(
@@ -163,6 +159,7 @@ export default function TodosPage() {
     }
   };
 
+  // Updated translateTodo with original_title support
   const translateTodo = async (todoId: string, targetLang: string) => {
     const todo = todos.find(t => t.id === todoId);
     if (!todo) return;
@@ -171,7 +168,23 @@ export default function TodosPage() {
     setShowTranslateMenu(null);
 
     try {
-      const translated = await translateText(todo.title, targetLang);
+      let translated = todo.title;
+
+      if (targetLang === 'en' && todo.original_title) {
+        // Wapas English → original text use karo
+        translated = todo.original_title;
+      } else {
+        // Translate karo
+        translated = await translateText(todo.title, targetLang);
+
+        // Agar original_title nahi hai aur non-English mein ja rahe ho → save kar do
+        if (!todo.original_title && targetLang !== 'en') {
+          await supabase
+            .from('todos')
+            .update({ original_title: todo.title })
+            .eq('id', todoId);
+        }
+      }
 
       const { error } = await supabase
         .from('todos')
@@ -179,7 +192,17 @@ export default function TodosPage() {
         .eq('id', todoId);
 
       if (!error) {
-        setTodos(todos.map(t => t.id === todoId ? { ...t, title: translated } : t));
+        setTodos(prevTodos =>
+          prevTodos.map(t =>
+            t.id === todoId
+              ? {
+                  ...t,
+                  title: translated,
+                  original_title: t.original_title || (targetLang !== 'en' ? todo.title : t.original_title),
+                }
+              : t
+          )
+        );
       }
     } catch (error) {
       console.error('Error translating:', error);
@@ -198,7 +221,8 @@ export default function TodosPage() {
         completed: false,
         user_id: user.id,
         due_date: dueDate || null,
-        tags: selectedTags
+        tags: selectedTags,
+        original_title: null,
       };
 
       const { data, error } = await supabase
@@ -207,18 +231,13 @@ export default function TodosPage() {
         .select()
         .single();
 
-      if (error) {
-        console.error('Supabase error:', error);
-        throw error;
-      }
+      if (error) throw error;
 
       if (data) {
         setTodos([data, ...todos]);
         setNewTodo('');
         setDueDate('');
         setSelectedTags([]);
-
-        // Speak the newly added task
         setTimeout(() => speakText(data.title, data.id), 300);
       }
     } catch (error: any) {
@@ -293,16 +312,9 @@ export default function TodosPage() {
 
   const getFilteredTodos = () => {
     let filtered = todos;
-
-    // Filter by completion status
     if (filter === 'active') filtered = filtered.filter(t => !t.completed);
     if (filter === 'completed') filtered = filtered.filter(t => t.completed);
-
-    // Filter by tag
-    if (tagFilter) {
-      filtered = filtered.filter(t => t.tags && t.tags.includes(tagFilter));
-    }
-
+    if (tagFilter) filtered = filtered.filter(t => t.tags && t.tags.includes(tagFilter));
     return filtered;
   };
 
@@ -350,7 +362,6 @@ export default function TodosPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-indigo-900 to-blue-900">
-      {/* Navbar */}
       <nav className="bg-black/30 backdrop-blur-xl border-b border-white/10 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
           <div className="flex justify-between items-center">
@@ -398,9 +409,7 @@ export default function TodosPage() {
         </div>
       </nav>
 
-      {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-        {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
           {[
             { label: 'Total Tasks', value: stats.total, color: 'from-purple-600 to-purple-800', icon: '📋' },
@@ -418,7 +427,6 @@ export default function TodosPage() {
           ))}
         </div>
 
-        {/* Add Task Card */}
         <form onSubmit={addTodo} className="bg-black/30 backdrop-blur-xl rounded-xl sm:rounded-2xl p-4 sm:p-6 mb-4 sm:mb-6 border border-white/10 shadow-2xl">
           <div className="flex flex-col gap-3">
             <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
@@ -446,7 +454,6 @@ export default function TodosPage() {
               </button>
             </div>
 
-            {/* Tags Selection */}
             <div className="flex flex-wrap gap-2">
               {predefinedTags.map((tag) => (
                 <button
@@ -465,9 +472,7 @@ export default function TodosPage() {
           </div>
         </form>
 
-        {/* Filter Tabs */}
         <div className="flex gap-2 mb-4 sm:mb-6 overflow-x-auto pb-2">
-          {/* Status Filters */}
           <div className="flex gap-2">
             {[
               { key: 'all', label: 'All', count: stats.total },
@@ -487,7 +492,6 @@ export default function TodosPage() {
             ))}
           </div>
 
-          {/* Tag Filters */}
           <div className="flex gap-2 ml-4 pl-4 border-l border-white/20">
             <button
               onClick={() => setTagFilter(null)}
@@ -517,7 +521,6 @@ export default function TodosPage() {
           </div>
         </div>
 
-        {/* Todo List */}
         <div className="space-y-3">
           {filteredTodos.map((todo) => {
             const dueStatus = getDueStatus(todo.due_date);
@@ -565,7 +568,6 @@ export default function TodosPage() {
                           {todo.title}
                         </p>
 
-                        {/* Tags Display */}
                         {todo.tags && todo.tags.length > 0 && (
                           <div className="flex flex-wrap gap-1.5 mt-2">
                             {todo.tags.map((tagName) => {
@@ -600,7 +602,6 @@ export default function TodosPage() {
                     )}
                   </div>
 
-                  {/* Action Buttons */}
                   <div className="flex gap-2 flex-shrink-0">
                     {isEditing ? (
                       <>
@@ -629,7 +630,6 @@ export default function TodosPage() {
                           <Edit2 className="w-5 h-5 text-yellow-400" />
                         </button>
 
-                        {/* Text-to-Speech Button */}
                         <button
                           onClick={() => speakText(todo.title, todo.id)}
                           className={`p-2 rounded-lg transition ${isSpeaking
@@ -641,7 +641,7 @@ export default function TodosPage() {
                           <Volume2 className={`w-5 h-5 ${isSpeaking ? 'text-purple-300' : 'text-purple-400'}`} />
                         </button>
 
-                        {/* Translation Button with Dropdown */}
+                        {/* Translation Button - Menu hamesha UPAR khulega */}
                         <div className="relative">
                           <button
                             onClick={() => setShowTranslateMenu(showMenu ? null : todo.id)}
@@ -656,17 +656,20 @@ export default function TodosPage() {
                           </button>
 
                           {showMenu && (
-                            <div className="absolute right-5 bottom-full mt-2 bg-black/90 backdrop-blur-xl rounded-lg border border-white/20 shadow-2xl z-70 min-w-[140px]"> 
-                            {LANGUAGES.map((lang) => (                              
-                              <button
-                                key={lang.code}
-                                onClick={() => translateTodo(todo.id, lang.code)}
-                                className="w-full flex items-center gap-2 px-4 py-2 hover:bg-white/10 transition text-left text-sm"
-                              >
-                                <span className="text-lg">{lang.flag}</span>
-                                <span className="text-white">{lang.name}</span>
-                              </button>
-                            ))}
+                            <div className="absolute right-0 bottom-full mb-2 bg-black/90 backdrop-blur-xl rounded-lg border border-white/20 shadow-2xl z-70 min-w-[140px]">
+                              {LANGUAGES.map((lang) => (
+                                <button
+                                  key={lang.code}
+                                  onClick={() => {
+                                    translateTodo(todo.id, lang.code);
+                                    setShowTranslateMenu(null);
+                                  }}
+                                  className="w-full flex items-center gap-2 px-4 py-2 hover:bg-white/10 transition text-left text-sm"
+                                >
+                                  <span className="text-lg">{lang.flag}</span>
+                                  <span className="text-white">{lang.name}</span>
+                                </button>
+                              ))}
                             </div>
                           )}
                         </div>
