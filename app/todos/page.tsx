@@ -20,6 +20,16 @@ interface Profile {
   job_title: string;
   avatar_url?: string;
 }
+const COMMON_TAGS = [
+  { label: 'Work', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
+  { label: 'Personal', color: 'bg-purple-500/20 text-purple-400 border-purple-500/30' },
+  { label: 'Urgent', color: 'bg-red-500/20 text-red-400 border-red-500/30' },
+  { label: 'Important', color: 'bg-orange-500/20 text-orange-400 border-orange-500/30' },
+  { label: 'Shopping', color: 'bg-green-500/20 text-green-400 border-green-500/30' },
+  { label: 'Health', color: 'bg-pink-500/20 text-pink-400 border-pink-500/30' },
+  { label: 'Learning', color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' },
+  { label: 'Meeting', color: 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30' },
+];
 
 export default function TodosPage() {
   const [user, setUser] = useState<User | null>(null);
@@ -34,7 +44,13 @@ export default function TodosPage() {
   const [speakingId, setSpeakingId] = useState<string | null>(null);
   const [translatingId, setTranslatingId] = useState<string | null>(null);
   const [showTranslateMenu, setShowTranslateMenu] = useState<string | null>(null);
-
+  
+  // Tags states
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [showTagMenu, setShowTagMenu] = useState<string | null>(null);
+  const [customTag, setCustomTag] = useState('');
+  const [filterTag, setFilterTag] = useState<string | null>(null);
+  
   useEffect(() => {
     checkUser();
     fetchTodos();
