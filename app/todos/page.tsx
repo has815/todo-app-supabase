@@ -136,7 +136,7 @@ export default function TodosPage() {
 
     // Stop any ongoing speech
     window.speechSynthesis.cancel();
-    
+
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.rate = 0.9;
     utterance.pitch = 1;
@@ -172,7 +172,7 @@ export default function TodosPage() {
 
     try {
       const translated = await translateText(todo.title, targetLang);
-      
+
       const { error } = await supabase
         .from('todos')
         .update({ title: translated })
@@ -217,7 +217,7 @@ export default function TodosPage() {
         setNewTodo('');
         setDueDate('');
         setSelectedTags([]);
-        
+
         // Speak the newly added task
         setTimeout(() => speakText(data.title, data.id), 300);
       }
@@ -293,22 +293,22 @@ export default function TodosPage() {
 
   const getFilteredTodos = () => {
     let filtered = todos;
-    
+
     // Filter by completion status
     if (filter === 'active') filtered = filtered.filter(t => !t.completed);
     if (filter === 'completed') filtered = filtered.filter(t => t.completed);
-    
+
     // Filter by tag
     if (tagFilter) {
       filtered = filtered.filter(t => t.tags && t.tags.includes(tagFilter));
     }
-    
+
     return filtered;
   };
 
   const getDueStatus = (dueDate: string | null) => {
     if (!dueDate) return { status: 'upcoming', color: 'text-purple-400', icon: '📆', label: 'Upcoming' };
-    
+
     const due = new Date(dueDate);
     const now = new Date();
     const diff = due.getTime() - now.getTime();
@@ -320,8 +320,8 @@ export default function TodosPage() {
   };
 
   const toggleTag = (tagName: string) => {
-    setSelectedTags(prev => 
-      prev.includes(tagName) 
+    setSelectedTags(prev =>
+      prev.includes(tagName)
         ? prev.filter(t => t !== tagName)
         : [...prev, tagName]
     );
@@ -359,14 +359,14 @@ export default function TodosPage() {
                 Todo App
               </h1>
             </div>
-            
+
             <div className="flex items-center gap-2 sm:gap-4">
               {user && (
                 <div className="flex items-center gap-3 px-3 py-2 rounded-xl bg-gradient-to-r from-purple-600/20 to-pink-600/20 backdrop-blur-lg border border-white/10">
                   {profile?.avatar_url || user.user_metadata?.avatar_url ? (
-                    <img 
-                      src={profile?.avatar_url || user.user_metadata?.avatar_url} 
-                      alt="Profile" 
+                    <img
+                      src={profile?.avatar_url || user.user_metadata?.avatar_url}
+                      alt="Profile"
                       className="w-8 h-8 rounded-full object-cover border-2 border-purple-400"
                       onError={(e) => {
                         e.currentTarget.style.display = 'none';
@@ -453,11 +453,10 @@ export default function TodosPage() {
                   key={tag.name}
                   type="button"
                   onClick={() => toggleTag(tag.name)}
-                  className={`px-3 py-1.5 rounded-lg border text-sm font-medium transition ${
-                    selectedTags.includes(tag.name)
-                      ? tag.color
-                      : 'bg-white/5 text-white/40 border-white/10 hover:bg-white/10'
-                  }`}
+                  className={`px-3 py-1.5 rounded-lg border text-sm font-medium transition ${selectedTags.includes(tag.name)
+                    ? tag.color
+                    : 'bg-white/5 text-white/40 border-white/10 hover:bg-white/10'
+                    }`}
                 >
                   🏷️ {tag.name}
                 </button>
@@ -478,11 +477,10 @@ export default function TodosPage() {
               <button
                 key={f.key}
                 onClick={() => setFilter(f.key as any)}
-                className={`px-4 sm:px-6 py-2 rounded-xl font-medium transition whitespace-nowrap text-sm ${
-                  filter === f.key
-                    ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg'
-                    : 'bg-white/10 text-white/60 hover:bg-white/20'
-                }`}
+                className={`px-4 sm:px-6 py-2 rounded-xl font-medium transition whitespace-nowrap text-sm ${filter === f.key
+                  ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg'
+                  : 'bg-white/10 text-white/60 hover:bg-white/20'
+                  }`}
               >
                 {f.label} ({f.count})
               </button>
@@ -493,11 +491,10 @@ export default function TodosPage() {
           <div className="flex gap-2 ml-4 pl-4 border-l border-white/20">
             <button
               onClick={() => setTagFilter(null)}
-              className={`px-4 py-2 rounded-xl font-medium transition whitespace-nowrap text-sm ${
-                !tagFilter
-                  ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg'
-                  : 'bg-white/10 text-white/60 hover:bg-white/20'
-              }`}
+              className={`px-4 py-2 rounded-xl font-medium transition whitespace-nowrap text-sm ${!tagFilter
+                ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg'
+                : 'bg-white/10 text-white/60 hover:bg-white/20'
+                }`}
             >
               All Tags
             </button>
@@ -508,11 +505,10 @@ export default function TodosPage() {
                 <button
                   key={tag.name}
                   onClick={() => setTagFilter(tagFilter === tag.name ? null : tag.name)}
-                  className={`px-4 py-2 rounded-xl font-medium transition whitespace-nowrap text-sm border ${
-                    tagFilter === tag.name
-                      ? tag.color
-                      : 'bg-white/10 text-white/60 border-white/10 hover:bg-white/20'
-                  }`}
+                  className={`px-4 py-2 rounded-xl font-medium transition whitespace-nowrap text-sm border ${tagFilter === tag.name
+                    ? tag.color
+                    : 'bg-white/10 text-white/60 border-white/10 hover:bg-white/20'
+                    }`}
                 >
                   🏷️ {tag.name} ({count})
                 </button>
@@ -533,13 +529,12 @@ export default function TodosPage() {
             return (
               <div
                 key={todo.id}
-                className={`bg-black/30 backdrop-blur-xl rounded-xl sm:rounded-2xl p-4 border transition-all hover:scale-[1.01] shadow-xl ${
-                  todo.completed
-                    ? 'border-green-500/30 opacity-75'
-                    : dueStatus.status === 'overdue'
+                className={`bg-black/30 backdrop-blur-xl rounded-xl sm:rounded-2xl p-4 border transition-all hover:scale-[1.01] shadow-xl ${todo.completed
+                  ? 'border-green-500/30 opacity-75'
+                  : dueStatus.status === 'overdue'
                     ? 'border-red-500/30'
                     : 'border-white/10'
-                }`}
+                  }`}
               >
                 <div className="flex items-start sm:items-center gap-3 sm:gap-4">
                   <button
@@ -569,7 +564,7 @@ export default function TodosPage() {
                         <p className={`text-white font-medium break-words ${todo.completed ? 'line-through opacity-60' : ''}`}>
                           {todo.title}
                         </p>
-                        
+
                         {/* Tags Display */}
                         {todo.tags && todo.tags.length > 0 && (
                           <div className="flex flex-wrap gap-1.5 mt-2">
@@ -578,9 +573,8 @@ export default function TodosPage() {
                               return (
                                 <span
                                   key={tagName}
-                                  className={`text-xs px-2 py-0.5 rounded border ${
-                                    tagConfig?.color || 'bg-white/10 text-white/60 border-white/20'
-                                  }`}
+                                  className={`text-xs px-2 py-0.5 rounded border ${tagConfig?.color || 'bg-white/10 text-white/60 border-white/20'
+                                    }`}
                                 >
                                   🏷️ {tagName}
                                 </span>
@@ -634,15 +628,14 @@ export default function TodosPage() {
                         >
                           <Edit2 className="w-5 h-5 text-yellow-400" />
                         </button>
-                        
+
                         {/* Text-to-Speech Button */}
                         <button
                           onClick={() => speakText(todo.title, todo.id)}
-                          className={`p-2 rounded-lg transition ${
-                            isSpeaking 
-                              ? 'bg-purple-600/40 animate-pulse' 
-                              : 'bg-purple-600/20 hover:bg-purple-600/30'
-                          }`}
+                          className={`p-2 rounded-lg transition ${isSpeaking
+                            ? 'bg-purple-600/40 animate-pulse'
+                            : 'bg-purple-600/20 hover:bg-purple-600/30'
+                            }`}
                           title="Read aloud"
                         >
                           <Volume2 className={`w-5 h-5 ${isSpeaking ? 'text-purple-300' : 'text-purple-400'}`} />
@@ -653,28 +646,27 @@ export default function TodosPage() {
                           <button
                             onClick={() => setShowTranslateMenu(showMenu ? null : todo.id)}
                             disabled={isTranslating}
-                            className={`p-2 rounded-lg transition ${
-                              isTranslating
-                                ? 'bg-blue-600/40 cursor-wait'
-                                : 'bg-blue-600/20 hover:bg-blue-600/30'
-                            }`}
+                            className={`p-2 rounded-lg transition ${isTranslating
+                              ? 'bg-blue-600/40 cursor-wait'
+                              : 'bg-blue-600/20 hover:bg-blue-600/30'
+                              }`}
                             title="Translate"
                           >
                             <Globe className={`w-5 h-5 text-blue-400 ${isTranslating ? 'animate-spin' : ''}`} />
                           </button>
 
                           {showMenu && (
-                            <div className="absolute right-0 top-full mt-2 bg-black/90 backdrop-blur-xl rounded-lg border border-white/20 shadow-2xl z-100 min-w-[140px]">
-                              {LANGUAGES.map((lang) => (
-                                <button
-                                  key={lang.code}
-                                  onClick={() => translateTodo(todo.id, lang.code)}
-                                  className="w-full flex items-center gap-2 px-4 py-2 hover:bg-white/10 transition text-left text-sm"
-                                >
-                                  <span className="text-lg">{lang.flag}</span>
-                                  <span className="text-white">{lang.name}</span>
-                                </button>
-                              ))}
+                            <div className="absolute right-0 top-full mb-2 bg-black/90 backdrop-blur-xl rounded-lg border border-white/20 shadow-2xl z-70 min-w-[140px]"> 
+                            {LANGUAGES.map((lang) => (                              
+                              <button
+                                key={lang.code}
+                                onClick={() => translateTodo(todo.id, lang.code)}
+                                className="w-full flex items-center gap-2 px-4 py-2 hover:bg-white/10 transition text-left text-sm"
+                              >
+                                <span className="text-lg">{lang.flag}</span>
+                                <span className="text-white">{lang.name}</span>
+                              </button>
+                            ))}
                             </div>
                           )}
                         </div>
