@@ -200,10 +200,10 @@ export default function TodosPage() {
           prevTodos.map(t =>
             t.id === todoId
               ? {
-                ...t,
-                title: translated,
-                original_title: t.original_title || (targetLang !== 'en' ? todo.title : t.original_title),
-              }
+                  ...t,
+                  title: translated,
+                  original_title: t.original_title || (targetLang !== 'en' ? todo.title : t.original_title),
+                }
               : t
           )
         );
@@ -480,29 +480,28 @@ export default function TodosPage() {
                 placeholder="Add a new task..."
                 className="flex-1 px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-purple-500 transition"
               />
-
               <input
                 type="datetime-local"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
                 className="px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500 transition text-sm"
               />
-
               <button
                 type="submit"
                 disabled={uploadingImage}
                 className="px-4 sm:px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 rounded-xl text-white font-medium flex items-center justify-center gap-2 transition shadow-lg disabled:opacity-50"
               >
                 <Plus className="w-5 h-5" />
-                <span>{uploadingImage ? 'Uploading...' : 'Add'}</span>
+                <span>{uploadingImage ? 'Uploading...' : 'Add Task'}</span>
               </button>
             </div>
 
             <div className="flex flex-col gap-3">
-              <div className="flex items-center gap-3">
-                <label className="px-4 py-2 bg-white/10 border border-white/20 rounded-lg cursor-pointer hover:bg-white/20 transition flex items-center gap-2 text-sm">
+              <label className="text-white/80 text-sm font-medium">Attach Image (optional)</label>
+              <div className="flex flex-wrap gap-2">
+                <label className="px-4 py-1.5 bg-white/5 border border-white/10 rounded-lg cursor-pointer hover:bg-white/10 transition flex items-center gap-2 text-sm font-medium">
                   <ImageIcon className="w-4 h-4 text-purple-400" />
-                  <span className="text-white">Choose Image</span>
+                  Choose Image
                   <input
                     type="file"
                     accept="image/*"
@@ -510,25 +509,24 @@ export default function TodosPage() {
                     className="hidden"
                   />
                 </label>
-
                 {imagePreview && (
                   <button
                     type="button"
                     onClick={removeImage}
-                    className="p-2 bg-red-600/20 hover:bg-red-600/30 rounded-lg transition"
+                    className="px-3 py-1.5 bg-red-600/20 hover:bg-red-600/30 rounded-lg transition text-sm font-medium flex items-center gap-2"
                     title="Remove image"
                   >
-                    <XCircle className="w-5 h-5 text-red-400" />
+                    <XCircle className="w-4 h-4 text-red-400" />
+                    Remove
                   </button>
                 )}
               </div>
-
               {imagePreview && (
                 <div className="mt-2">
                   <img
                     src={imagePreview}
                     alt="Preview"
-                    className="w-32 h-32 object-cover rounded-lg border border-white/20 shadow-lg"
+                    className="w-32 h-32 object-cover rounded-lg border border-white/20"
                   />
                 </div>
               )}
@@ -552,23 +550,52 @@ export default function TodosPage() {
           </div>
         </form>
 
-        <div className="flex gap-2 mb-4 sm:mb-6 overflow-x-auto">
-          {[
-            { key: 'all', label: 'All', count: stats.total },
-            { key: 'active', label: 'Active', count: stats.active },
-            { key: 'completed', label: 'Completed', count: stats.completed }
-          ].map((f) => (
+        <div className="flex gap-2 mb-4 sm:mb-6 overflow-x-auto pb-2">
+          <div className="flex gap-2">
+            {[
+              { key: 'all', label: 'All', count: stats.total },
+              { key: 'active', label: 'Active', count: stats.active },
+              { key: 'completed', label: 'Completed', count: stats.completed }
+            ].map((f) => (
+              <button
+                key={f.key}
+                onClick={() => setFilter(f.key as any)}
+                className={`px-4 sm:px-6 py-2 rounded-xl font-medium transition whitespace-nowrap text-sm ${filter === f.key
+                  ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg'
+                  : 'bg-white/10 text-white/60 hover:bg-white/20'
+                  }`}
+              >
+                {f.label} ({f.count})
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-2 ml-4 pl-4 border-l border-white/20">
             <button
-              key={f.key}
-              onClick={() => setFilter(f.key as any)}
-              className={`px-4 sm:px-6 py-2 rounded-xl font-medium transition whitespace-nowrap text-sm ${filter === f.key
-                ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg'
+              onClick={() => setTagFilter(null)}
+              className={`px-4 py-2 rounded-xl font-medium transition whitespace-nowrap text-sm ${!tagFilter
+                ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg'
                 : 'bg-white/10 text-white/60 hover:bg-white/20'
                 }`}
             >
-              {f.label} ({f.count})
+              All Tags
             </button>
-          ))}
+            {predefinedTags.map((tag) => {
+              const count = todos.filter(t => t.tags && t.tags.includes(tag.name)).length;
+              if (count === 0) return null;
+              return (
+                <button
+                  key={tag.name}
+                  onClick={() => setTagFilter(tagFilter === tag.name ? null : tag.name)}
+                  className={`px-4 py-2 rounded-xl font-medium transition whitespace-nowrap text-sm border ${tagFilter === tag.name
+                    ? tag.color
+                    : 'bg-white/10 text-white/60 border-white/10 hover:bg-white/20'
+                    }`}
+                >
+                  🏷️ {tag.name} ({count})
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         <div className="space-y-3">
@@ -618,20 +645,18 @@ export default function TodosPage() {
                           {todo.title}
                         </p>
 
-                        {/* Compact Circular Thumbnail - Pehle jaisi spacing, lekin circular */}
+                        {/* Circular Thumbnail */}
                         {todo.image_url && (
-                          <div
-                            className="mt-3 flex justify-start" // mt-3 se thodi kam height, left align
-                            onClick={() => setSelectedImageUrl(todo.image_url)}
-                          >
+                          <div className="mt-2 cursor-pointer" onClick={() => setSelectedImageUrl(todo.image_url)}>
                             <img
                               src={todo.image_url}
                               alt="Task attachment"
-                              className="w-16 h-16 rounded-full object-cover border-2 border-purple-400/60 shadow-md hover:scale-110 transition-transform duration-300 cursor-pointer"
-                              title="Click to view full image"
+                              className="w-16 h-16 rounded-full object-cover border-2 border-purple-400/60 shadow-md hover:scale-105 transition-transform duration-200"
+                              title="Click to view full size"
                             />
                           </div>
                         )}
+
                         {todo.tags && todo.tags.length > 0 && (
                           <div className="flex flex-wrap gap-1.5 mt-2">
                             {todo.tags.map((tagName) => {
@@ -648,7 +673,6 @@ export default function TodosPage() {
                             })}
                           </div>
                         )}
-
                         {todo.due_date && (
                           <div className="flex items-center gap-2 mt-1 flex-wrap">
                             <Calendar className={`w-3 h-3 ${dueStatus.color}`} />
@@ -665,39 +689,66 @@ export default function TodosPage() {
                       </div>
                     )}
                   </div>
-
                   <div className="flex gap-2 flex-shrink-0">
                     {isEditing ? (
                       <>
-                        <button onClick={() => saveEdit(todo.id)} className="p-2 rounded-lg bg-green-600/20 hover:bg-green-600/30 transition" title="Save">
+                        <button
+                          onClick={() => saveEdit(todo.id)}
+                          className="p-2 rounded-lg bg-green-600/20 hover:bg-green-600/30 transition"
+                          title="Save"
+                        >
                           <Check className="w-5 h-5 text-green-400" />
                         </button>
-                        <button onClick={cancelEdit} className="p-2 rounded-lg bg-gray-600/20 hover:bg-gray-600/30 transition" title="Cancel">
+                        <button
+                          onClick={cancelEdit}
+                          className="p-2 rounded-lg bg-gray-600/20 hover:bg-gray-600/30 transition"
+                          title="Cancel"
+                        >
                           <X className="w-5 h-5 text-gray-400" />
                         </button>
                       </>
                     ) : (
                       <>
-                        <button onClick={() => startEdit(todo)} className="p-2 rounded-lg bg-yellow-600/20 hover:bg-yellow-600/30 transition" title="Edit">
+                        <button
+                          onClick={() => startEdit(todo)}
+                          className="p-2 rounded-lg bg-yellow-600/20 hover:bg-yellow-600/30 transition"
+                          title="Edit"
+                        >
                           <Edit2 className="w-5 h-5 text-yellow-400" />
                         </button>
-
-                        <button onClick={() => speakText(todo.title, todo.id)} className={`p-2 rounded-lg transition ${isSpeaking ? 'bg-purple-600/40 animate-pulse' : 'bg-purple-600/20 hover:bg-purple-600/30'}`} title="Read aloud">
-                          <Volume2 className={`w-5 h-5 ${isSpeaking ? 'text-purple-300' : 'text-purple-400'}`} />
+                        <button
+                          onClick={() => speakText(todo.title, todo.id)}
+                          className={`p-2 rounded-lg transition ${isSpeaking
+                            ? 'bg-purple-600/40 animate-pulse'
+                            : 'bg-purple-600/20 hover:bg-purple-600/30'
+                            }`}
+                          title="Read aloud"
+                        >
+                          <Volume2 className={`w-5 h-5 ${isSpeaking ? 'text-purple-300' : 'text-purple-400'}` } />
                         </button>
-
                         <div className="relative">
-                          <button onClick={() => setShowTranslateMenu(showMenu ? null : todo.id)} disabled={isTranslating} className={`p-2 rounded-lg transition ${isTranslating ? 'bg-blue-600/40 cursor-wait' : 'bg-blue-600/20 hover:bg-blue-600/30'}`} title="Translate">
-                            <Globe className={`w-5 h-5 text-blue-400 ${isTranslating ? 'animate-spin' : ''}`} />
+                          <button
+                            onClick={() => setShowTranslateMenu(showMenu ? null : todo.id)}
+                            disabled={isTranslating}
+                            className={`p-2 rounded-lg transition ${isTranslating
+                              ? 'bg-blue-600/40 cursor-wait'
+                              : 'bg-blue-600/20 hover:bg-blue-600/30'
+                              }`}
+                            title="Translate"
+                          >
+                            <Globe className={`w-5 h-5 text-blue-400 ${isTranslating ? 'animate-spin' : ''}` } />
                           </button>
-
                           {showMenu && (
-                            <div className="absolute right-0 bottom-full mb-2 bg-black/90 backdrop-blur-xl rounded-lg border border-white/20 shadow-2xl z-[70] min-w-[140px]">
+                            <div className="absolute right-0 bottom-full mb-2 bg-black/90 backdrop-blur-xl rounded-lg border border-white/20 shadow-2xl z-70 min-w-[140px]">
                               {LANGUAGES.map((lang) => (
-                                <button key={lang.code} onClick={() => {
-                                  translateTodo(todo.id, lang.code);
-                                  setShowTranslateMenu(null);
-                                }} className="w-full flex items-center gap-2 px-4 py-2 hover:bg-white/10 transition text-left text-sm first:rounded-t-lg last:rounded-b-lg">
+                                <button
+                                  key={lang.code}
+                                  onClick={() => {
+                                    translateTodo(todo.id, lang.code);
+                                    setShowTranslateMenu(null);
+                                  }}
+                                  className="w-full flex items-center gap-2 px-4 py-2 hover:bg-white/10 transition text-left text-sm"
+                                >
                                   <span className="text-lg">{lang.flag}</span>
                                   <span className="text-white">{lang.name}</span>
                                 </button>
@@ -705,8 +756,11 @@ export default function TodosPage() {
                             </div>
                           )}
                         </div>
-
-                        <button onClick={() => deleteTodo(todo.id)} className="p-2 rounded-lg bg-red-600/20 hover:bg-red-600/30 transition" title="Delete">
+                        <button
+                          onClick={() => deleteTodo(todo.id)}
+                          className="p-2 rounded-lg bg-red-600/20 hover:bg-red-600/30 transition"
+                          title="Delete"
+                        >
                           <Trash2 className="w-5 h-5 text-red-400" />
                         </button>
                       </>
@@ -741,7 +795,7 @@ export default function TodosPage() {
             />
             <button
               onClick={() => setFullImageView(null)}
-              className="absolute top-4 right-4 p-3 bg-red-600/90 hover:bg-red-600 rounded-full transition shadow-2xl group"
+              className="absolute top-4 right-4 p-3 bg-red-600/90 hover:bg-red-700 rounded-full transition shadow-2xl group"
               title="Close (ESC)"
             >
               <X className="w-6 h-6 text-white group-hover:scale-110 transition" />
