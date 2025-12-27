@@ -618,7 +618,7 @@ export default function TodosPage() {
                           {todo.title}
                         </p>
 
-                        {/* Thumbnail Image - Click to open modal */}
+                        {/* Circular Thumbnail - WhatsApp style */}
                         {todo.image_url && (
                           <div
                             className="mt-4 cursor-pointer"
@@ -627,12 +627,11 @@ export default function TodosPage() {
                             <img
                               src={todo.image_url}
                               alt="Task attachment"
-                              className="max-w-full max-h-96 object-contain rounded-lg border border-white/20 shadow-lg hover:opacity-90 transition"
-                              title="Click to view full size"
+                              className="w-32 h-32 rounded-full object-cover border-4 border-purple-500/50 shadow-xl hover:scale-105 transition-transform duration-300"
+                              title="Click to view"
                             />
                           </div>
                         )}
-
                         {todo.tags && todo.tags.length > 0 && (
                           <div className="flex flex-wrap gap-1.5 mt-2">
                             {todo.tags.map((tagName) => {
