@@ -404,7 +404,6 @@ export default function TodosPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-indigo-900 to-blue-900">
-      {/* Navbar */}
       <nav className="bg-black/30 backdrop-blur-xl border-b border-white/10 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0">
@@ -449,9 +448,7 @@ export default function TodosPage() {
         </div>
       </nav>
 
-      {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-        {/* Stats Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
           {[
             { label: 'Total Tasks', value: stats.total, color: 'from-purple-600 to-purple-800', icon: '📋' },
@@ -467,7 +464,6 @@ export default function TodosPage() {
           ))}
         </div>
 
-        {/* Add Task Form */}
         <form onSubmit={addTodo} className="bg-black/30 backdrop-blur-xl rounded-2xl p-5 sm:p-6 mb-8 border border-white/10 shadow-2xl">
           <div className="flex flex-col gap-5">
             <div className="flex flex-col sm:flex-row gap-4">
@@ -494,7 +490,6 @@ export default function TodosPage() {
               </button>
             </div>
 
-            {/* Image Upload Section */}
             <div className="flex flex-col gap-3">
               <label className="text-white/80 text-sm font-medium">Attach Image (optional)</label>
               <div className="flex flex-wrap items-center gap-3">
@@ -530,7 +525,6 @@ export default function TodosPage() {
               )}
             </div>
 
-            {/* Tags */}
             <div className="flex flex-wrap gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-purple-500">
               {predefinedTags.map((tag) => (
                 <button
@@ -549,7 +543,6 @@ export default function TodosPage() {
           </div>
         </form>
 
-        {/* Filters */}
         <div className="flex gap-2 mb-6 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-purple-500">
           {[
             { key: 'all', label: 'All', count: stats.total },
@@ -569,7 +562,6 @@ export default function TodosPage() {
           ))}
         </div>
 
-        {/* Todo List */}
         <div className="space-y-4">
           {filteredTodos.map((todo) => {
             const dueStatus = getDueStatus(todo.due_date);
@@ -581,26 +573,26 @@ export default function TodosPage() {
             return (
               <div
                 key={todo.id}
-                className={`bg-black/30 backdrop-blur-xl rounded-2xl p-5 border transition-all hover:scale-[1.02] shadow-xl ${todo.completed
-                  ? 'border-green-500/30 opacity-75'
+                className={`bg-black/30 backdrop-blur-xl rounded-xl p-4 border transition-all hover:scale-[1.01] shadow-xl ${todo.completed
+                  ? 'border-green-500/30 opacity-80'
                   : dueStatus.status === 'overdue'
                     ? 'border-red-500/30'
                     : 'border-white/10'
                   }`}
               >
-                <div className="flex flex-col sm:flex-row items-start gap-5">
+                <div className="flex items-start gap-4">
                   <button
                     onClick={() => toggleTodo(todo.id, todo.completed)}
                     className="flex-shrink-0 mt-1"
                   >
                     {todo.completed ? (
-                      <CheckCircle className="w-8 h-8 text-green-400" />
+                      <CheckCircle className="w-7 h-7 text-green-400" />
                     ) : (
-                      <Circle className="w-8 h-8 text-white/40 hover:text-purple-400 transition" />
+                      <Circle className="w-7 h-7 text-white/50 hover:text-purple-400 transition" />
                     )}
                   </button>
 
-                  <div className="flex-1 min-w-0 w-full">
+                  <div className="flex-1 min-w-0">
                     {isEditing ? (
                       <input
                         type="text"
@@ -611,32 +603,32 @@ export default function TodosPage() {
                       />
                     ) : (
                       <div>
-                        <p className={`text-xl font-medium break-words ${todo.completed ? 'line-through opacity-70' : 'text-white'}`}>
+                        <p className={`text-lg font-medium break-words ${todo.completed ? 'line-through opacity-70' : 'text-white'}`}>
                           {todo.title}
                         </p>
 
                         {todo.image_url && (
                           <div 
-                            className="mt-4 cursor-pointer"
+                            className="mt-3 cursor-pointer inline-block"
                             onClick={() => setFullImageView(todo.image_url)}
                           >
                             <img
                               src={todo.image_url}
                               alt="Task attachment"
-                              className="w-24 h-24 rounded-full object-cover border-4 border-purple-500/50 shadow-lg hover:scale-105 transition-transform duration-300"
+                              className="w-16 h-16 rounded-full object-cover border-2 border-purple-400/60 shadow-md hover:scale-110 transition-transform duration-200"
                               title="Tap to view full image"
                             />
                           </div>
                         )}
 
                         {todo.tags && todo.tags.length > 0 && (
-                          <div className="flex flex-wrap gap-2 mt-3">
+                          <div className="flex flex-wrap gap-1.5 mt-2">
                             {todo.tags.map((tagName) => {
                               const tagConfig = predefinedTags.find(t => t.name === tagName);
                               return (
                                 <span
                                   key={tagName}
-                                  className={`text-sm px-3 py-1 rounded-full ${tagConfig?.color || 'bg-white/10 text-white/70 border-white/20'}`}
+                                  className={`text-xs px-2 py-0.5 rounded border ${tagConfig?.color || 'bg-white/10 text-white/60 border-white/20'}`}
                                 >
                                   🏷️ {tagName}
                                 </span>
@@ -646,13 +638,13 @@ export default function TodosPage() {
                         )}
 
                         {todo.due_date && (
-                          <div className="flex items-center gap-2 mt-3 flex-wrap">
+                          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                             <Calendar className={`w-4 h-4 ${dueStatus.color}`} />
-                            <span className={`text-sm ${dueStatus.color}`}>
+                            <span className={`text-xs ${dueStatus.color}`}>
                               {dueStatus.icon} {new Date(todo.due_date).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}
                             </span>
                             {dueStatus.status === 'overdue' && (
-                              <span className="text-xs bg-red-600/30 px-3 py-1 rounded-full text-red-300">
+                              <span className="text-xs bg-red-600/30 px-2 py-0.5 rounded text-red-300">
                                 {dueStatus.label}
                               </span>
                             )}
@@ -662,44 +654,44 @@ export default function TodosPage() {
                     )}
                   </div>
 
-                  <div className="flex flex-wrap gap-3 mt-5 sm:mt-0">
+                  <div className="flex flex-wrap gap-2">
                     {isEditing ? (
                       <>
-                        <button onClick={() => saveEdit(todo.id)} className="p-3 rounded-xl bg-green-600/20 hover:bg-green-600/40 transition">
-                          <Check className="w-6 h-6 text-green-300" />
+                        <button onClick={() => saveEdit(todo.id)} className="p-2.5 rounded-lg bg-green-600/20 hover:bg-green-600/40 transition">
+                          <Check className="w-5 h-5 text-green-300" />
                         </button>
-                        <button onClick={cancelEdit} className="p-3 rounded-xl bg-gray-600/20 hover:bg-gray-600/40 transition">
-                          <X className="w-6 h-6 text-gray-300" />
+                        <button onClick={cancelEdit} className="p-2.5 rounded-lg bg-gray-600/20 hover:bg-gray-600/40 transition">
+                          <X className="w-5 h-5 text-gray-300" />
                         </button>
                       </>
                     ) : (
                       <>
-                        <button onClick={() => startEdit(todo)} className="p-3 rounded-xl bg-yellow-600/20 hover:bg-yellow-600/40 transition">
-                          <Edit2 className="w-6 h-6 text-yellow-300" />
+                        <button onClick={() => startEdit(todo)} className="p-2.5 rounded-lg bg-yellow-600/20 hover:bg-yellow-600/40 transition">
+                          <Edit2 className="w-5 h-5 text-yellow-300" />
                         </button>
-                        <button onClick={() => speakText(todo.title, todo.id)} className={`p-3 rounded-xl transition ${isSpeaking ? 'bg-purple-600/50 animate-pulse' : 'bg-purple-600/20 hover:bg-purple-600/40'}`}>
-                          <Volume2 className={`w-6 h-6 ${isSpeaking ? 'text-purple-200' : 'text-purple-300'}`} />
+                        <button onClick={() => speakText(todo.title, todo.id)} className={`p-2.5 rounded-lg transition ${isSpeaking ? 'bg-purple-600/40 animate-pulse' : 'bg-purple-600/20 hover:bg-purple-600/40'}`}>
+                          <Volume2 className={`w-5 h-5 ${isSpeaking ? 'text-purple-200' : 'text-purple-300'}`} />
                         </button>
                         <div className="relative">
-                          <button onClick={() => setShowTranslateMenu(showMenu ? null : todo.id)} disabled={isTranslating} className={`p-3 rounded-xl transition ${isTranslating ? 'bg-blue-600/50 cursor-wait' : 'bg-blue-600/20 hover:bg-blue-600/40'}`}>
-                            <Globe className={`w-6 h-6 text-blue-300 ${isTranslating ? 'animate-spin' : ''}`} />
+                          <button onClick={() => setShowTranslateMenu(showMenu ? null : todo.id)} disabled={isTranslating} className={`p-2.5 rounded-lg transition ${isTranslating ? 'bg-blue-600/40 cursor-wait' : 'bg-blue-600/20 hover:bg-blue-600/40'}`}>
+                            <Globe className={`w-5 h-5 text-blue-300 ${isTranslating ? 'animate-spin' : ''}`} />
                           </button>
                           {showMenu && (
-                            <div className="absolute right-0 bottom-full mb-3 bg-black/95 backdrop-blur-xl rounded-xl border border-white/20 shadow-2xl z-50 min-w-[180px] max-h-72 overflow-y-auto">
+                            <div className="absolute right-0 bottom-full mb-2 bg-black/95 backdrop-blur-xl rounded-xl border border-white/20 shadow-2xl z-50 min-w-[160px] max-h-72 overflow-y-auto">
                               {LANGUAGES.map((lang) => (
                                 <button key={lang.code} onClick={() => {
                                   translateTodo(todo.id, lang.code);
                                   setShowTranslateMenu(null);
-                                }} className="w-full flex items-center gap-3 px-5 py-3 hover:bg-white/10 transition text-left text-base">
-                                  <span className="text-2xl">{lang.flag}</span>
+                                }} className="w-full flex items-center gap-3 px-5 py-3 hover:bg-white/10 transition text-left text-sm">
+                                  <span className="text-xl">{lang.flag}</span>
                                   <span className="text-white">{lang.name}</span>
                                 </button>
                               ))}
                             </div>
                           )}
                         </div>
-                        <button onClick={() => deleteTodo(todo.id)} className="p-3 rounded-xl bg-red-600/20 hover:bg-red-600/40 transition">
-                          <Trash2 className="w-6 h-6 text-red-300" />
+                        <button onClick={() => deleteTodo(todo.id)} className="p-2.5 rounded-lg bg-red-600/20 hover:bg-red-600/40 transition">
+                          <Trash2 className="w-5 h-5 text-red-300" />
                         </button>
                       </>
                     )}
