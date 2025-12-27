@@ -33,6 +33,7 @@ const LANGUAGES = [
 ];
 
 export default function TodosPage() {
+  const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [todos, setTodos] = useState<Todo[]>([]);
@@ -47,7 +48,7 @@ export default function TodosPage() {
   const [showTranslateMenu, setShowTranslateMenu] = useState<string | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [tagFilter, setTagFilter] = useState<string | null>(null);
-  
+
   // Image states
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -199,10 +200,10 @@ export default function TodosPage() {
           prevTodos.map(t =>
             t.id === todoId
               ? {
-                  ...t,
-                  title: translated,
-                  original_title: t.original_title || (targetLang !== 'en' ? todo.title : t.original_title),
-                }
+                ...t,
+                title: translated,
+                original_title: t.original_title || (targetLang !== 'en' ? todo.title : t.original_title),
+              }
               : t
           )
         );
@@ -619,12 +620,14 @@ export default function TodosPage() {
 
                         {/* Thumbnail Image - Click to open modal */}
                         {todo.image_url && (
-                          <div className="mt-2">
+                          <div
+                            className="mt-4 cursor-pointer"
+                            onClick={() => setSelectedImageUrl(todo.image_url)}
+                          >
                             <img
                               src={todo.image_url}
                               alt="Task attachment"
-                              className="w-20 h-20 object-cover rounded-lg border-2 border-white/20 shadow-lg cursor-pointer hover:opacity-80 hover:scale-105 transition-all"
-                              onClick={() => setFullImageView(todo.image_url!)}
+                              className="max-w-full max-h-96 object-contain rounded-lg border border-white/20 shadow-lg hover:opacity-90 transition"
                               title="Click to view full size"
                             />
                           </div>
@@ -726,7 +729,7 @@ export default function TodosPage() {
 
       {/* Full Image Modal */}
       {fullImageView && (
-        <div 
+        <div
           className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md flex items-center justify-center p-4"
           onClick={() => setFullImageView(null)}
         >
@@ -744,7 +747,7 @@ export default function TodosPage() {
             >
               <X className="w-6 h-6 text-white group-hover:scale-110 transition" />
             </button>
-            
+
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 bg-black/60 backdrop-blur-lg rounded-full text-white text-sm border border-white/20">
               Click anywhere to close
             </div>
