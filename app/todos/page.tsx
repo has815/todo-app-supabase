@@ -618,17 +618,17 @@ export default function TodosPage() {
                           {todo.title}
                         </p>
 
-                        {/* Circular Thumbnail - WhatsApp style */}
+                        {/* Compact Circular Thumbnail - Pehle jaisi spacing, lekin circular */}
                         {todo.image_url && (
                           <div
-                            className="mt-4 cursor-pointer"
+                            className="mt-3 flex justify-start" // mt-3 se thodi kam height, left align
                             onClick={() => setSelectedImageUrl(todo.image_url)}
                           >
                             <img
                               src={todo.image_url}
                               alt="Task attachment"
-                              className="w-32 h-32 rounded-full object-cover border-4 border-purple-500/50 shadow-xl hover:scale-105 transition-transform duration-300"
-                              title="Click to view"
+                              className="w-16 h-16 rounded-full object-cover border-2 border-purple-400/60 shadow-md hover:scale-110 transition-transform duration-300 cursor-pointer"
+                              title="Click to view full image"
                             />
                           </div>
                         )}
