@@ -15,7 +15,7 @@ interface Todo {
   user_id: string;
   created_at: string;
   tags: string[];
-  image_url?: string | null; // ← Naya field image ke liye
+  image_url?: string | null;
 }
 
 interface Profile {
@@ -47,11 +47,12 @@ export default function TodosPage() {
   const [showTranslateMenu, setShowTranslateMenu] = useState<string | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [tagFilter, setTagFilter] = useState<string | null>(null);
-
-  // ← Image upload states
+  
+  // Image states
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [fullImageView, setFullImageView] = useState<string | null>(null);
 
   const predefinedTags = [
     { name: 'Work', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
@@ -213,7 +214,6 @@ export default function TodosPage() {
     }
   };
 
-  // ← Image handlers
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -227,7 +227,6 @@ export default function TodosPage() {
     setImagePreview(null);
   };
 
-  // ← addTodo with image upload
   const addTodo = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!newTodo.trim() || !user) return;
@@ -406,7 +405,6 @@ export default function TodosPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-indigo-900 to-blue-900">
       <nav className="bg-black/30 backdrop-blur-xl border-b border-white/10 sticky top-0 z-50">
-        {/* Navbar same */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-4 sm:gap-8">
@@ -495,17 +493,15 @@ export default function TodosPage() {
                 className="px-4 sm:px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 rounded-xl text-white font-medium flex items-center justify-center gap-2 transition shadow-lg disabled:opacity-50"
               >
                 <Plus className="w-5 h-5" />
-                <span>{uploadingImage ? 'Uploading...' : 'Add Task'}</span>
+                <span>{uploadingImage ? 'Uploading...' : 'Add'}</span>
               </button>
             </div>
 
-            {/* ← IMAGE UPLOAD SECTION – form ke andar hi hai */}
             <div className="flex flex-col gap-3">
-              <label className="text-white/80 text-sm font-medium">Attach Image (optional)</label>
               <div className="flex items-center gap-3">
-                <label className="px-4 py-3 bg-white/10 border border-white/20 rounded-xl cursor-pointer hover:bg-white/20 transition flex items-center gap-2">
-                  <ImageIcon className="w-5 h-5 text-purple-400" />
-                  <span className="text-white text-sm">Choose Image</span>
+                <label className="px-4 py-2 bg-white/10 border border-white/20 rounded-lg cursor-pointer hover:bg-white/20 transition flex items-center gap-2 text-sm">
+                  <ImageIcon className="w-4 h-4 text-purple-400" />
+                  <span className="text-white">Choose Image</span>
                   <input
                     type="file"
                     accept="image/*"
@@ -531,13 +527,12 @@ export default function TodosPage() {
                   <img
                     src={imagePreview}
                     alt="Preview"
-                    className="max-w-xs max-h-48 object-cover rounded-lg border border-white/20 shadow-lg"
+                    className="w-32 h-32 object-cover rounded-lg border border-white/20 shadow-lg"
                   />
                 </div>
               )}
             </div>
 
-            {/* Tags same */}
             <div className="flex flex-wrap gap-2">
               {predefinedTags.map((tag) => (
                 <button
@@ -556,7 +551,24 @@ export default function TodosPage() {
           </div>
         </form>
 
-        {/* Filters same */}
+        <div className="flex gap-2 mb-4 sm:mb-6 overflow-x-auto">
+          {[
+            { key: 'all', label: 'All', count: stats.total },
+            { key: 'active', label: 'Active', count: stats.active },
+            { key: 'completed', label: 'Completed', count: stats.completed }
+          ].map((f) => (
+            <button
+              key={f.key}
+              onClick={() => setFilter(f.key as any)}
+              className={`px-4 sm:px-6 py-2 rounded-xl font-medium transition whitespace-nowrap text-sm ${filter === f.key
+                ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg'
+                : 'bg-white/10 text-white/60 hover:bg-white/20'
+                }`}
+            >
+              {f.label} ({f.count})
+            </button>
+          ))}
+        </div>
 
         <div className="space-y-3">
           {filteredTodos.map((todo) => {
@@ -605,13 +617,15 @@ export default function TodosPage() {
                           {todo.title}
                         </p>
 
-                        {/* ← IMAGE SHOW HOGI */}
+                        {/* Thumbnail Image - Click to open modal */}
                         {todo.image_url && (
-                          <div className="mt-4">
+                          <div className="mt-2">
                             <img
                               src={todo.image_url}
                               alt="Task attachment"
-                              className="max-w-full max-h-96 object-contain rounded-lg border border-white/20 shadow-lg"
+                              className="w-20 h-20 object-cover rounded-lg border-2 border-white/20 shadow-lg cursor-pointer hover:opacity-80 hover:scale-105 transition-all"
+                              onClick={() => setFullImageView(todo.image_url!)}
+                              title="Click to view full size"
                             />
                           </div>
                         )}
@@ -650,7 +664,6 @@ export default function TodosPage() {
                     )}
                   </div>
 
-                  {/* Actions same */}
                   <div className="flex gap-2 flex-shrink-0">
                     {isEditing ? (
                       <>
@@ -677,12 +690,12 @@ export default function TodosPage() {
                           </button>
 
                           {showMenu && (
-                            <div className="absolute right-0 bottom-full mb-2 bg-black/90 backdrop-blur-xl rounded-lg border border-white/20 shadow-2xl z-70 min-w-[140px]">
+                            <div className="absolute right-0 bottom-full mb-2 bg-black/90 backdrop-blur-xl rounded-lg border border-white/20 shadow-2xl z-[70] min-w-[140px]">
                               {LANGUAGES.map((lang) => (
                                 <button key={lang.code} onClick={() => {
                                   translateTodo(todo.id, lang.code);
                                   setShowTranslateMenu(null);
-                                }} className="w-full flex items-center gap-2 px-4 py-2 hover:bg-white/10 transition text-left text-sm">
+                                }} className="w-full flex items-center gap-2 px-4 py-2 hover:bg-white/10 transition text-left text-sm first:rounded-t-lg last:rounded-b-lg">
                                   <span className="text-lg">{lang.flag}</span>
                                   <span className="text-white">{lang.name}</span>
                                 </button>
@@ -710,6 +723,34 @@ export default function TodosPage() {
           </div>
         )}
       </div>
+
+      {/* Full Image Modal */}
+      {fullImageView && (
+        <div 
+          className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md flex items-center justify-center p-4"
+          onClick={() => setFullImageView(null)}
+        >
+          <div className="relative max-w-7xl max-h-[95vh] w-full">
+            <img
+              src={fullImageView}
+              alt="Full view"
+              className="w-full h-full object-contain rounded-2xl shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            />
+            <button
+              onClick={() => setFullImageView(null)}
+              className="absolute top-4 right-4 p-3 bg-red-600/90 hover:bg-red-600 rounded-full transition shadow-2xl group"
+              title="Close (ESC)"
+            >
+              <X className="w-6 h-6 text-white group-hover:scale-110 transition" />
+            </button>
+            
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 bg-black/60 backdrop-blur-lg rounded-full text-white text-sm border border-white/20">
+              Click anywhere to close
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
