@@ -1,52 +1,35 @@
+// app/auth/callback/route.ts
 import { createServerClient } from '@supabase/ssr'
-import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
+import { NextResponse } from 'next/server'
 
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get('code')
 
   if (code) {
-    const cookieStore = await cookies()
-    
+    const cookieStore = cookies()
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         cookies: {
-          get(name: string) {
+          get(name) {
             return cookieStore.get(name)?.value
           },
-          set(name: string, value: string, options: any) {
-            try {
-              cookieStore.set({ name, value, ...options })
-            } catch (error) {
-              console.error('Cookie set error:', error)
-            }
+          set(name, value, options) {
+            cookieStore.set({ name, value, ...options })
           },
-          remove(name: string, options: any) {
-            try {
-              cookieStore.set({ name, value: '', ...options })
-            } catch (error) {
-              console.error('Cookie remove error:', error)
-            }
+          remove(name, options) {
+            cookieStore.set({ name, value: '', ...options })
           },
         },
       }
     )
 
-    const { data, error } = await supabase.auth.exchangeCodeForSession(code)
-
-    if (error) {
-      console.error('Auth error:', error)
-      return NextResponse.redirect(`${requestUrl.origin}/todos`);
-    }
-
-    console.log('✅ Session created successfully')
-    
-    // Directly redirect to profile-setup for now
-    return NextResponse.redirect(`${requestUrl.origin}/todos`);
+    await supabase.auth.exchangeCodeForSession(code)
   }
 
-  return NextResponse.redirect(`${requestUrl.origin}/todos`);
+  // Redirect to todos after login (ya admin agar admin hai)
+  return NextResponse.redirect(requestUrl.origin + '/todos')
 }

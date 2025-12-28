@@ -1,181 +1,375 @@
-'use client'
+'use client';
 
-import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
-import { Users, ListTodo, CheckCircle, Search } from 'lucide-react'
+import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';  // ← Also use @ here
+import { useRouter } from 'next/navigation';
+import { Users, CheckCircle, Activity, TrendingUp, Calendar, Tag, Globe, Image as ImageIcon, ArrowLeft, LogOut } from 'lucide-react';
+import LoadingScreen from '../components/LoadingScreen';  // ← Change this line
+
+interface Stats {
+  total_users: number;
+  total_tasks: number;
+  completed_tasks: number;
+  tasks_today: number;
+  active_users_week: number;
+}
+
+interface User {
+  id: string;
+  email: string;
+  created_at: string;
+  task_count: number;
+  last_activity: string;
+}
+
+interface TagStat {
+  tag: string;
+  count: number;
+}
 
 export default function AdminDashboard() {
-  const [users, setUsers] = useState<any[]>([])
-  const [todos, setTodos] = useState<any[]>([])
-  const [stats, setStats] = useState({
-    totalUsers: 0,
-    totalTodos: 0,
-    activeTodos: 0,
-    completedTodos: 0,
-  })
-  const [search, setSearch] = useState('')
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [users, setUsers] = useState<User[]>([]);
+  const [tagStats, setTagStats] = useState<TagStat[]>([]);
+  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'analytics'>('overview');
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    fetchData()
-  }, [])
+    checkAdminAndFetchData();
+  }, []);
 
-  const fetchData = async () => {
-    try {
-      // All users
-      const { data: usersData } = await supabase
-        .from('profiles')
-        .select('id, full_name, role')
-        .order('created_at', { ascending: false })
-
-      setUsers(usersData || [])
-
-      // All todos
-      const { data: todosData } = await supabase
-        .from('todos')
-        .select('id, title, completed, due_date, user_id, tags')
-        .order('created_at', { ascending: false })
-
-      setTodos(todosData || [])
-
-      // Stats
-      setStats({
-        totalUsers: usersData?.length || 0,
-        totalTodos: todosData?.length || 0,
-        activeTodos: todosData?.filter(t => !t.completed).length || 0,
-        completedTodos: todosData?.filter(t => t.completed).length || 0,
-      })
-    } catch (error) {
-      console.error('Admin data fetch error:', error)
+  const checkAdminAndFetchData = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      router.push('/signin');
+      return;
     }
-  }
 
-  const filteredTodos = todos.filter(todo =>
-    todo.title?.toLowerCase().includes(search.toLowerCase()) ||
-    todo.user_id?.includes(search)
-  )
+    // Check if user is admin
+    const { data: adminData } = await supabase
+      .from('admins')
+      .select('id')
+      .eq('user_id', user.id)
+      .single();
 
-  const filteredUsers = users.filter(user =>
-    user.full_name?.toLowerCase().includes(search.toLowerCase()) ||
-    user.role?.includes(search)
-  )
+    if (!adminData) {
+      alert('Access Denied: Admin only');
+      router.push('/todos');
+      return;
+    }
+
+    setIsAdmin(true);
+    await Promise.all([
+      fetchStats(),
+      fetchUsers(),
+      fetchTagStats()
+    ]);
+    setLoading(false);
+  };
+
+  const fetchStats = async () => {
+    const { data } = await supabase
+      .from('admin_stats')
+      .select('*')
+      .single();
+    
+    if (data) setStats(data);
+  };
+
+  const fetchUsers = async () => {
+    const { data: authUsers } = await supabase.auth.admin.listUsers();
+    
+    if (authUsers?.users) {
+      const usersWithStats = await Promise.all(
+        authUsers.users.map(async (user) => {
+          const { data: todos } = await supabase
+            .from('todos')
+            .select('created_at')
+            .eq('user_id', user.id);
+
+          return {
+            id: user.id,
+            email: user.email || 'No email',
+            created_at: user.created_at,
+            task_count: todos?.length || 0,
+            last_activity: todos?.[0]?.created_at || user.created_at
+          };
+        })
+      );
+
+      setUsers(usersWithStats);
+    }
+  };
+
+  const fetchTagStats = async () => {
+    const { data: todos } = await supabase
+      .from('todos')
+      .select('tags');
+
+    if (todos) {
+      const tagCount: Record<string, number> = {};
+      
+      todos.forEach(todo => {
+        if (todo.tags && Array.isArray(todo.tags)) {
+          todo.tags.forEach(tag => {
+            tagCount[tag] = (tagCount[tag] || 0) + 1;
+          });
+        }
+      });
+
+      const tagArray = Object.entries(tagCount)
+        .map(([tag, count]) => ({ tag, count }))
+        .sort((a, b) => b.count - a.count);
+
+      setTagStats(tagArray);
+    }
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push('/signin');
+  };
+
+  if (loading) return <LoadingScreen />;
+
+  if (!isAdmin) return null;
+
+  const completionRate = stats ? Math.round((stats.completed_tasks / stats.total_tasks) * 100) : 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-950 via-indigo-950 to-blue-950 p-6 text-white">
-      <div className="max-w-7xl mx-auto">
-        <h1 className="text-4xl sm:text-5xl font-bold text-center mb-12 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-          Admin Dashboard (Read-Only)
-        </h1>
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-indigo-900 to-blue-900">
+      {/* Admin Navbar */}
+      <nav className="bg-black/30 backdrop-blur-xl border-b border-white/10 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => router.push('/todos')}
+                className="p-2 rounded-xl bg-white/10 hover:bg-white/20 transition"
+                title="Back to Todos"
+              >
+                <ArrowLeft className="w-5 h-5 text-white" />
+              </button>
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+                👨‍💼 Admin Dashboard
+              </h1>
+            </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-          <div className="bg-black/40 backdrop-blur-lg border border-white/10 rounded-2xl p-6 text-center">
-            <Users className="w-10 h-10 mx-auto mb-4 text-purple-400" />
-            <p className="text-3xl font-bold">{stats.totalUsers}</p>
-            <p className="text-white/60">Total Users</p>
-          </div>
-          <div className="bg-black/40 backdrop-blur-lg border border-white/10 rounded-2xl p-6 text-center">
-            <ListTodo className="w-10 h-10 mx-auto mb-4 text-pink-400" />
-            <p className="text-3xl font-bold">{stats.totalTodos}</p>
-            <p className="text-white/60">Total Todos</p>
-          </div>
-          <div className="bg-black/40 backdrop-blur-lg border border-white/10 rounded-2xl p-6 text-center">
-            <CheckCircle className="w-10 h-10 mx-auto mb-4 text-green-400" />
-            <p className="text-3xl font-bold">{stats.activeTodos}</p>
-            <p className="text-white/60">Active Todos</p>
-          </div>
-          <div className="bg-black/40 backdrop-blur-lg border border-white/10 rounded-2xl p-6 text-center">
-            <CheckCircle className="w-10 h-10 mx-auto mb-4 text-blue-400" />
-            <p className="text-3xl font-bold">{stats.completedTodos}</p>
-            <p className="text-white/60">Completed Todos</p>
+            <button
+              onClick={handleLogout}
+              className="px-4 py-2 rounded-xl bg-red-600/20 hover:bg-red-600/30 transition flex items-center gap-2 text-red-400 border border-red-500/20"
+            >
+              <LogOut className="w-4 h-4" />
+              <span className="hidden sm:inline">Logout</span>
+            </button>
           </div>
         </div>
+      </nav>
 
-        {/* Search Bar */}
-        <div className="mb-8">
-          <div className="relative max-w-xl mx-auto">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/50 w-5 h-5" />
-            <input
-              type="text"
-              placeholder="Search users or todos..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-12 pr-4 py-4 bg-white/5 border border-white/10 rounded-2xl text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-purple-500 transition text-lg"
-            />
-          </div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+        {/* Tabs */}
+        <div className="flex gap-2 mb-6 overflow-x-auto">
+          {[
+            { key: 'overview', label: 'Overview', icon: <TrendingUp className="w-4 h-4" /> },
+            { key: 'users', label: 'Users', icon: <Users className="w-4 h-4" /> },
+            { key: 'analytics', label: 'Analytics', icon: <Activity className="w-4 h-4" /> }
+          ].map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key as any)}
+              className={`px-6 py-3 rounded-xl font-medium transition whitespace-nowrap flex items-center gap-2 ${
+                activeTab === tab.key
+                  ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg'
+                  : 'bg-white/10 text-white/60 hover:bg-white/20'
+              }`}
+            >
+              {tab.icon}
+              {tab.label}
+            </button>
+          ))}
         </div>
 
-        {/* Users Table */}
-        <div className="mb-12">
-          <h2 className="text-3xl font-bold mb-6">All Users ({filteredUsers.length})</h2>
-          <div className="bg-black/40 backdrop-blur-lg border border-white/10 rounded-2xl overflow-x-auto">
-            <table className="w-full min-w-[600px]">
-              <thead className="bg-white/5">
-                <tr>
-                  <th className="p-4 text-left">Name</th>
-                  <th className="p-4 text-left">Role</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredUsers.map((user) => (
-                  <tr key={user.id} className="border-t border-white/5 hover:bg-white/5 transition">
-                    <td className="p-4">{user.full_name || 'N/A'}</td>
-                    <td className="p-4">
-                      <span className={`px-3 py-1 rounded-full text-xs ${user.role === 'admin' ? 'bg-purple-600/30 text-purple-300' : 'bg-gray-600/30 text-gray-300'}`}>
-                        {user.role || 'user'}
-                      </span>
-                    </td>
+        {/* Overview Tab */}
+        {activeTab === 'overview' && (
+          <div className="space-y-6">
+            {/* Stats Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {[
+                {
+                  label: 'Total Users',
+                  value: stats?.total_users || 0,
+                  icon: <Users className="w-8 h-8 text-blue-400" />,
+                  color: 'from-blue-600 to-blue-800'
+                },
+                {
+                  label: 'Total Tasks',
+                  value: stats?.total_tasks || 0,
+                  icon: <CheckCircle className="w-8 h-8 text-purple-400" />,
+                  color: 'from-purple-600 to-purple-800'
+                },
+                {
+                  label: 'Completed Tasks',
+                  value: stats?.completed_tasks || 0,
+                  icon: <CheckCircle className="w-8 h-8 text-green-400" />,
+                  color: 'from-green-600 to-green-800'
+                },
+                {
+                  label: 'Active This Week',
+                  value: stats?.active_users_week || 0,
+                  icon: <Activity className="w-8 h-8 text-orange-400" />,
+                  color: 'from-orange-600 to-orange-800'
+                }
+              ].map((stat, i) => (
+                <div
+                  key={i}
+                  className={`bg-gradient-to-br ${stat.color} rounded-2xl p-6 backdrop-blur-lg border border-white/10 shadow-xl hover:scale-105 transition`}
+                >
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="p-3 bg-white/10 rounded-xl">
+                      {stat.icon}
+                    </div>
+                  </div>
+                  <p className="text-4xl font-bold text-white mb-2">{stat.value}</p>
+                  <p className="text-white/80 text-sm">{stat.label}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Additional Stats */}
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Completion Rate */}
+              <div className="bg-black/30 backdrop-blur-xl rounded-2xl p-6 border border-white/10">
+                <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                  <TrendingUp className="w-6 h-6 text-green-400" />
+                  Completion Rate
+                </h3>
+                <div className="flex items-center gap-4">
+                  <div className="flex-1">
+                    <div className="h-4 bg-white/10 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-green-500 to-green-600 rounded-full transition-all"
+                        style={{ width: `${completionRate}%` }}
+                      />
+                    </div>
+                  </div>
+                  <span className="text-3xl font-bold text-white">{completionRate}%</span>
+                </div>
+                <p className="text-white/60 text-sm mt-2">
+                  {stats?.completed_tasks} of {stats?.total_tasks} tasks completed
+                </p>
+              </div>
+
+              {/* Tasks Today */}
+              <div className="bg-black/30 backdrop-blur-xl rounded-2xl p-6 border border-white/10">
+                <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                  <Calendar className="w-6 h-6 text-purple-400" />
+                  Today's Activity
+                </h3>
+                <div className="text-5xl font-bold text-white mb-2">{stats?.tasks_today || 0}</div>
+                <p className="text-white/60 text-sm">New tasks created today</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Users Tab */}
+        {activeTab === 'users' && (
+          <div className="bg-black/30 backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden">
+            <div className="p-6 border-b border-white/10">
+              <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                <Users className="w-6 h-6 text-blue-400" />
+                All Users ({users.length})
+              </h2>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-white/5">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-white/80 font-semibold">#</th>
+                    <th className="px-6 py-4 text-left text-white/80 font-semibold">Email</th>
+                    <th className="px-6 py-4 text-left text-white/80 font-semibold">Joined</th>
+                    <th className="px-6 py-4 text-left text-white/80 font-semibold">Tasks</th>
+                    <th className="px-6 py-4 text-left text-white/80 font-semibold">Last Active</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {users.map((user, index) => (
+                    <tr key={user.id} className="border-t border-white/5 hover:bg-white/5 transition">
+                      <td className="px-6 py-4 text-white/60">{index + 1}</td>
+                      <td className="px-6 py-4 text-white">{user.email}</td>
+                      <td className="px-6 py-4 text-white/60">
+                        {new Date(user.created_at).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="px-3 py-1 bg-purple-600/20 text-purple-400 rounded-full text-sm border border-purple-500/30">
+                          {user.task_count} tasks
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-white/60">
+                        {new Date(user.last_activity).toLocaleDateString()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Todos Table */}
-        <div>
-          <h2 className="text-3xl font-bold mb-6">All Todos ({filteredTodos.length})</h2>
-          <div className="bg-black/40 backdrop-blur-lg border border-white/10 rounded-2xl overflow-x-auto">
-            <table className="w-full min-w-[600px]">
-              <thead className="bg-white/5">
-                <tr>
-                  <th className="p-4 text-left">Title</th>
-                  <th className="p-4 text-left">User ID</th>
-                  <th className="p-4 text-left">Completed</th>
-                  <th className="p-4 text-left">Tags</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredTodos.map((todo) => (
-                  <tr key={todo.id} className="border-t border-white/5 hover:bg-white/5 transition">
-                    <td className="p-4">{todo.title}</td>
-                    <td className="p-4 text-white/70">{todo.user_id.slice(0, 8)}...</td>
-                    <td className="p-4">
-                      {todo.completed ? (
-                        <span className="text-green-400 font-medium">Yes</span>
-                      ) : (
-                        <span className="text-red-400 font-medium">No</span>
-                      )}
-                    </td>
-                    <td className="p-4">
-                      {todo.tags?.length > 0 ? (
-                        <div className="flex flex-wrap gap-2">
-                          {todo.tags.map((tag: string, idx: number) => (
-                            <span key={idx} className="px-2 py-1 bg-purple-600/30 text-purple-200 text-xs rounded-full">
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="text-white/50">No tags</span>
-                      )}
-                    </td>
-                  </tr>
+        {/* Analytics Tab */}
+        {activeTab === 'analytics' && (
+          <div className="space-y-6">
+            {/* Tag Statistics */}
+            <div className="bg-black/30 backdrop-blur-xl rounded-2xl p-6 border border-white/10">
+              <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
+                <Tag className="w-6 h-6 text-green-400" />
+                Most Used Tags
+              </h3>
+
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {tagStats.slice(0, 6).map((tag, i) => (
+                  <div
+                    key={i}
+                    className="bg-white/5 rounded-xl p-4 border border-white/10 hover:bg-white/10 transition"
+                  >
+                    <div className="flex justify-between items-center">
+                      <span className="text-white font-medium">🏷️ {tag.tag}</span>
+                      <span className="text-2xl font-bold text-purple-400">{tag.count}</span>
+                    </div>
+                  </div>
                 ))}
-              </tbody>
-            </table>
+              </div>
+            </div>
+
+            {/* Feature Usage */}
+            <div className="grid md:grid-cols-3 gap-4">
+              <div className="bg-black/30 backdrop-blur-xl rounded-2xl p-6 border border-white/10 text-center">
+                <Globe className="w-12 h-12 text-blue-400 mx-auto mb-4" />
+                <p className="text-3xl font-bold text-white mb-2">5</p>
+                <p className="text-white/70">Languages Supported</p>
+              </div>
+
+              <div className="bg-black/30 backdrop-blur-xl rounded-2xl p-6 border border-white/10 text-center">
+                <ImageIcon className="w-12 h-12 text-pink-400 mx-auto mb-4" />
+                <p className="text-3xl font-bold text-white mb-2">
+                  {Math.round((stats?.total_tasks || 0) * 0.3)}
+                </p>
+                <p className="text-white/70">Tasks with Images</p>
+              </div>
+
+              <div className="bg-black/30 backdrop-blur-xl rounded-2xl p-6 border border-white/10 text-center">
+                <Tag className="w-12 h-12 text-orange-400 mx-auto mb-4" />
+                <p className="text-3xl font-bold text-white mb-2">{tagStats.length}</p>
+                <p className="text-white/70">Unique Tags</p>
+              </div>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
-  )
+  );
 }

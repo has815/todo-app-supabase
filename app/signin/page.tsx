@@ -15,17 +15,18 @@ export default function SignInPage() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
+          // Yeh line sabse important hai – callback route set kar raha hai
           redirectTo: `${window.location.origin}/auth/callback`,
         },
       });
 
       if (error) {
         console.error('Google sign in error:', error);
-        alert('Error signing in with Google');
+        alert('Error signing in with Google: ' + error.message);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Sign in error:', error);
-      alert('Something went wrong');
+      alert('Something went wrong: ' + (error.message || 'Unknown error'));
     } finally {
       setLoading(false);
     }

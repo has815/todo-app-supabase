@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { User } from '@supabase/supabase-js';
-import { LogOut, Plus, Trash2, Calendar, CheckCircle, Circle, Edit2, X, Check, Volume2, Globe, Image as ImageIcon, XCircle } from 'lucide-react';
+import Link from 'next/link';
+import { LogOut, Plus, Trash2, Calendar, CheckCircle, Circle, Edit2, X, Check, Volume2, Globe, Image as ImageIcon, XCircle, Shield } from 'lucide-react';
 import { requestNotificationPermission, startNotificationChecker } from '../../lib/notifications';
 
 interface Todo {
@@ -53,6 +54,7 @@ export default function TodosPage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [fullImageView, setFullImageView] = useState<string | null>(null);
+  const [isUserAdmin, setIsUserAdmin] = useState(false);
 
   const predefinedTags = [
     { name: 'Work', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
@@ -63,19 +65,7 @@ export default function TodosPage() {
     { name: 'Health', color: 'bg-pink-500/20 text-pink-400 border-pink-500/30' },
   ];
 
-  useEffect(() => {
-    checkUser();
-    fetchTodos();
-    requestNotificationPermission();
-  }, []);
-
-  useEffect(() => {
-    if (user && todos.length > 0) {
-      const cleanup = startNotificationChecker(todos, user.email || '');
-      return cleanup;
-    }
-  }, [todos, user]);
-
+  // Function to check if user is logged in
   const checkUser = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
@@ -83,33 +73,41 @@ export default function TodosPage() {
       return;
     }
     setUser(user);
-    fetchProfile(user.id);
   };
 
-  const fetchProfile = async (userId: string) => {
+  // Function to check if user is admin
+  const checkIfAdmin = async (userId: string) => {
     try {
-      const { data, error } = await supabase
+      const { data: profile } = await supabase
         .from('profiles')
-        .select('full_name, job_title, avatar_url')
-        .eq('user_id', userId)
-        .maybeSingle();
+        .select('role')
+        .eq('id', userId)
+        .single();
 
-      if (data) {
-        setProfile(data);
-      } else {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user?.user_metadata?.avatar_url) {
-          setProfile({
-            full_name: user.user_metadata.full_name || user.email?.split('@')[0] || 'User',
-            job_title: 'User',
-            avatar_url: user.user_metadata.avatar_url
-          });
-        }
-      }
+      setIsUserAdmin(profile?.role === 'admin');
     } catch (error) {
-      console.log('Profile not found, using defaults');
+      console.error('Admin check error:', error);
+      setIsUserAdmin(false);
     }
   };
+
+  // Initial load
+  useEffect(() => {
+    const initialize = async () => {
+      await checkUser();
+      await fetchTodos();
+      requestNotificationPermission();
+    };
+
+    initialize();
+  }, []);
+
+  // Re-check admin when user changes
+  useEffect(() => {
+    if (user) {
+      checkIfAdmin(user.id);
+    }
+  }, [user]);
 
   const fetchTodos = async () => {
     try {
@@ -411,7 +409,7 @@ export default function TodosPage() {
               Todo App
             </h1>
 
-            <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+            <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end flex-wrap">
               {user && (
                 <div className="flex items-center gap-3 px-3 py-2 rounded-xl bg-gradient-to-r from-purple-600/20 to-pink-600/20 backdrop-blur-lg border border-white/10 flex-1 sm:flex-none min-w-0">
                   {profile?.avatar_url || user.user_metadata?.avatar_url ? (
@@ -436,6 +434,19 @@ export default function TodosPage() {
                   </div>
                 </div>
               )}
+
+              {/* Admin Button */}
+              {isUserAdmin && (
+                <Link
+                  href="/admin"
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-yellow-600/20 to-orange-600/20 hover:from-yellow-600/30 hover:to-orange-600/30 transition flex items-center gap-2 text-yellow-400 border border-yellow-500/20 backdrop-blur-lg shadow-lg flex-shrink-0"
+                  title="Admin Dashboard"
+                >
+                  <Shield className="w-4 h-4" />
+                  <span className="hidden sm:inline font-medium">Admin</span>
+                </Link>
+              )}
+
               <button
                 onClick={handleLogout}
                 className="p-2 rounded-xl bg-red-600/20 hover:bg-red-600/30 transition backdrop-blur-lg border border-red-500/20 flex-shrink-0"
@@ -608,7 +619,7 @@ export default function TodosPage() {
                         </p>
 
                         {todo.image_url && (
-                          <div 
+                          <div
                             className="mt-3 cursor-pointer inline-block"
                             onClick={() => setFullImageView(todo.image_url)}
                           >
@@ -716,7 +727,7 @@ export default function TodosPage() {
           className="fixed inset-0 z-[9999] bg-black/95 backdrop-blur-xl flex items-center justify-center p-4"
           onClick={() => setFullImageView(null)}
         >
-          <div 
+          <div
             className="relative w-full max-w-5xl max-h-[90vh]"
             onClick={(e) => e.stopPropagation()}
           >
