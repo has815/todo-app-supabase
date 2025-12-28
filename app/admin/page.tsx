@@ -1,45 +1,44 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
-import { Shield, Users, ClipboardList, Trash2, ArrowLeft, Ban, CheckCircle, TrendingUp } from 'lucide-react';
+
+// Admin emails - CHANGE THIS TO YOUR EMAIL
+const ADMIN_EMAILS = ['bhattihaseeb008@gmail.com'];
 
 interface User {
   id: string;
   email: string;
-  full_name: string;
-  job_title: string;
-  role: string;
   created_at: string;
+  full_name?: string;
+  role?: string;
 }
 
 interface Todo {
   id: string;
   title: string;
+  description: string;
   completed: boolean;
-  due_date: string | null;
-  user_id: string;
   created_at: string;
-  tags: string[];
-  users: {
-    email: string;
-    profiles: {
-      full_name: string;
-    }[];
-  };
+  user_id: string;
+  user_email?: string;
 }
 
-const ADMIN_EMAILS = ['hassanahmed12168@gmail.com'];
-
 export default function AdminPage() {
-  const [users, setUsers] = useState<User[]>([]);
-  const [allTodos, setAllTodos] = useState<Todo[]>([]);
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'todos'>('overview');
-
-  const router = useRouter();
+  
+  const [users, setUsers] = useState<User[]>([]);
+  const [todos, setTodos] = useState<Todo[]>([]);
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    totalTodos: 0,
+    completedTodos: 0,
+    activeTodos: 0
+  });
 
   useEffect(() => {
     checkAdminAccess();
@@ -47,29 +46,35 @@ export default function AdminPage() {
 
   const checkAdminAccess = async () => {
     try {
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-
-      if (userError || !user) {
-        console.log('No user found, redirecting to signin');
-        window.location.href = '/signin';
+      // Get current session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        console.error('Session error:', sessionError);
+        router.push('/signin');
         return;
       }
 
-      console.log('User email:', user.email); // Debug log
+      if (!session) {
+        console.log('No session found');
+        router.push('/signin');
+        return;
+      }
 
-      // Check if user is admin by email
-      const isAdminEmail = ADMIN_EMAILS.includes(user.email || '');
-      console.log('Is admin email?', isAdminEmail); // Debug log
-
+      const userEmail = session.user.email;
+      console.log('Logged in as:', userEmail);
 
       // Check if user is admin
-      if (!isAdminEmail) {
+      if (!userEmail || !ADMIN_EMAILS.includes(userEmail)) {
         alert('⛔ Access Denied: Admin privileges required');
-        window.location.href = '/todos';
+        router.push('/todos');
         return;
       }
 
+      console.log('✅ Admin access granted');
       setIsAdmin(true);
+      
+      // Load data
       await Promise.all([
         fetchAllUsers(),
         fetchAllTodos()
@@ -77,7 +82,7 @@ export default function AdminPage() {
     } catch (error) {
       console.error('Admin check error:', error);
       alert('Error checking admin access');
-      window.location.href = '/todos';
+      router.push('/todos');
     } finally {
       setLoading(false);
     }
@@ -85,30 +90,14 @@ export default function AdminPage() {
 
   const fetchAllUsers = async () => {
     try {
-      const { data: authUsers } = await supabase.auth.admin.listUsers();
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-      if (!authUsers) return;
-
-      const usersWithProfiles = await Promise.all(
-        authUsers.users.map(async (user) => {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('full_name, job_title, role')
-            .eq('user_id', user.id)
-            .single();
-
-          return {
-            id: user.id,
-            email: user.email || 'No email',
-            full_name: profile?.full_name || 'Unknown',
-            job_title: profile?.job_title || 'User',
-            role: profile?.role || 'user',
-            created_at: user.created_at
-          };
-        })
-      );
-
-      setUsers(usersWithProfiles);
+      if (error) throw error;
+      setUsers(data || []);
+      setStats(prev => ({ ...prev, totalUsers: data?.length || 0 }));
     } catch (error) {
       console.error('Error fetching users:', error);
     }
@@ -120,24 +109,33 @@ export default function AdminPage() {
         .from('todos')
         .select(`
           *,
-          users:user_id (
-            email,
-            profiles:profiles(full_name)
-          )
+          profiles!inner(email)
         `)
-        .order('created_at', { ascending: false })
-        .limit(100);
+        .order('created_at', { ascending: false });
 
-      if (!error && data) {
-        setAllTodos(data as any);
-      }
+      if (error) throw error;
+
+      const todosWithEmail = data?.map(todo => ({
+        ...todo,
+        user_email: (todo.profiles as any)?.email
+      })) || [];
+
+      setTodos(todosWithEmail);
+      
+      const completed = todosWithEmail.filter(t => t.completed).length;
+      setStats(prev => ({
+        ...prev,
+        totalTodos: todosWithEmail.length,
+        completedTodos: completed,
+        activeTodos: todosWithEmail.length - completed
+      }));
     } catch (error) {
       console.error('Error fetching todos:', error);
     }
   };
 
-  const deleteUserTodo = async (todoId: string, userEmail: string) => {
-    if (!confirm(`Delete this todo from ${userEmail}?`)) return;
+  const deleteTodo = async (todoId: string) => {
+    if (!confirm('Delete this todo?')) return;
 
     try {
       const { error } = await supabase
@@ -145,20 +143,20 @@ export default function AdminPage() {
         .delete()
         .eq('id', todoId);
 
-      if (!error) {
-        setAllTodos(allTodos.filter(t => t.id !== todoId));
-        alert('✅ Todo deleted successfully!');
-      }
+      if (error) throw error;
+
+      alert('✅ Todo deleted successfully');
+      await fetchAllTodos();
     } catch (error) {
       console.error('Error deleting todo:', error);
-      alert('❌ Failed to delete todo');
+      alert('❌ Error deleting todo');
     }
   };
 
   const toggleUserRole = async (userId: string, currentRole: string) => {
     const newRole = currentRole === 'admin' ? 'user' : 'admin';
-
-    if (!confirm(`Change user role to ${newRole}?`)) return;
+    
+    if (!confirm(`Change role to ${newRole}?`)) return;
 
     try {
       const { error } = await supabase
@@ -166,20 +164,23 @@ export default function AdminPage() {
         .update({ role: newRole })
         .eq('user_id', userId);
 
-      if (!error) {
-        setUsers(users.map(u => u.id === userId ? { ...u, role: newRole } : u));
-        alert(`✅ User role updated to ${newRole}!`);
-      }
+      if (error) throw error;
+
+      alert(`✅ Role changed to ${newRole}`);
+      await fetchAllUsers();
     } catch (error) {
       console.error('Error updating role:', error);
-      alert('❌ Failed to update role');
+      alert('❌ Error updating role');
     }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-indigo-900 to-blue-900 flex items-center justify-center">
-        <div className="text-white text-xl">Loading Admin Panel...</div>
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Checking admin access...</p>
+        </div>
       </div>
     );
   }
@@ -188,171 +189,95 @@ export default function AdminPage() {
     return null;
   }
 
-  const stats = {
-    totalUsers: users.length,
-    totalTodos: allTodos.length,
-    completedTodos: allTodos.filter(t => t.completed).length,
-    admins: users.filter(u => u.role === 'admin').length
-  };
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-indigo-900 to-blue-900">
-      {/* Header */}
-      <nav className="bg-black/30 backdrop-blur-xl border-b border-white/10 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => router.push('/todos')}
-                className="p-2 rounded-xl bg-white/10 hover:bg-white/20 transition"
-              >
-                <ArrowLeft className="w-5 h-5 text-white" />
-              </button>
-              <Shield className="w-8 h-8 text-yellow-400" />
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent">
-                Admin Dashboard
-              </h1>
-            </div>
-          </div>
-        </div>
-      </nav>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          {[
-            { label: 'Total Users', value: stats.totalUsers, color: 'from-blue-600 to-blue-800', icon: <Users className="w-8 h-8" /> },
-            { label: 'Total Todos', value: stats.totalTodos, color: 'from-purple-600 to-purple-800', icon: <ClipboardList className="w-8 h-8" /> },
-            { label: 'Completed', value: stats.completedTodos, color: 'from-green-600 to-green-800', icon: <CheckCircle className="w-8 h-8" /> },
-            { label: 'Admins', value: stats.admins, color: 'from-yellow-600 to-orange-800', icon: <Shield className="w-8 h-8" /> }
-          ].map((stat, i) => (
-            <div key={i} className={`bg-gradient-to-br ${stat.color} rounded-2xl p-6 backdrop-blur-lg border border-white/10 shadow-xl`}>
-              <div className="flex justify-between items-start mb-2">
-                <div>
-                  <p className="text-white/80 text-sm font-medium">{stat.label}</p>
-                  <p className="text-4xl font-bold text-white mt-2">{stat.value}</p>
-                </div>
-                <div className="text-white/60">{stat.icon}</div>
-              </div>
-            </div>
-          ))}
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 p-8">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold text-gray-800 mb-2">👑 Admin Dashboard</h1>
+          <p className="text-gray-600">Manage users, todos, and system settings</p>
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-2 mb-6 overflow-x-auto">
-          {[
-            { key: 'overview', label: 'Overview', icon: <TrendingUp className="w-4 h-4" /> },
-            { key: 'users', label: 'Users', icon: <Users className="w-4 h-4" /> },
-            { key: 'todos', label: 'All Todos', icon: <ClipboardList className="w-4 h-4" /> }
-          ].map((tab) => (
+        <div className="flex gap-4 mb-6">
+          {['overview', 'users', 'todos'].map((tab) => (
             <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key as any)}
-              className={`px-6 py-3 rounded-xl font-medium transition whitespace-nowrap flex items-center gap-2 ${activeTab === tab.key
-                ? 'bg-gradient-to-r from-yellow-600 to-orange-600 text-white shadow-lg'
-                : 'bg-white/10 text-white/60 hover:bg-white/20'
-                }`}
+              key={tab}
+              onClick={() => setActiveTab(tab as any)}
+              className={`px-6 py-3 rounded-lg font-semibold transition-all ${
+                activeTab === tab
+                  ? 'bg-purple-600 text-white shadow-lg'
+                  : 'bg-white text-gray-600 hover:bg-gray-50'
+              }`}
             >
-              {tab.icon}
-              {tab.label}
+              {tab.charAt(0).toUpperCase() + tab.slice(1)}
             </button>
           ))}
         </div>
 
         {/* Overview Tab */}
         {activeTab === 'overview' && (
-          <div className="bg-black/30 backdrop-blur-xl rounded-2xl p-6 border border-white/10">
-            <h2 className="text-2xl font-bold text-white mb-6">System Overview</h2>
-
-            <div className="grid gap-6">
-              <div className="bg-white/5 rounded-xl p-5 border border-white/10">
-                <h3 className="text-lg font-semibold text-white mb-3">Recent Activity</h3>
-                <div className="space-y-2">
-                  {allTodos.slice(0, 5).map((todo) => (
-                    <div key={todo.id} className="flex justify-between items-center p-3 bg-white/5 rounded-lg">
-                      <div className="flex-1">
-                        <p className="text-white text-sm">{todo.title}</p>
-                        <p className="text-white/60 text-xs mt-1">
-                          by {todo.users?.profiles?.[0]?.full_name || todo.users?.email || 'Unknown'}
-                        </p>
-                      </div>
-                      <span className={`text-xs px-2 py-1 rounded ${todo.completed ? 'bg-green-600/20 text-green-400' : 'bg-yellow-600/20 text-yellow-400'
-                        }`}>
-                        {todo.completed ? 'Completed' : 'Active'}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="bg-white/5 rounded-xl p-5 border border-white/10">
-                <h3 className="text-lg font-semibold text-white mb-3">User Statistics</h3>
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center p-2">
-                    <span className="text-white/70">Active Users:</span>
-                    <span className="text-white font-bold">{users.length}</span>
-                  </div>
-                  <div className="flex justify-between items-center p-2">
-                    <span className="text-white/70">Completion Rate:</span>
-                    <span className="text-white font-bold">
-                      {stats.totalTodos > 0 ? Math.round((stats.completedTodos / stats.totalTodos) * 100) : 0}%
-                    </span>
-                  </div>
-                </div>
-              </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="bg-white p-6 rounded-xl shadow-lg">
+              <div className="text-purple-600 text-3xl mb-2">👥</div>
+              <h3 className="text-gray-600 text-sm">Total Users</h3>
+              <p className="text-3xl font-bold text-gray-800">{stats.totalUsers}</p>
+            </div>
+            <div className="bg-white p-6 rounded-xl shadow-lg">
+              <div className="text-blue-600 text-3xl mb-2">📋</div>
+              <h3 className="text-gray-600 text-sm">Total Todos</h3>
+              <p className="text-3xl font-bold text-gray-800">{stats.totalTodos}</p>
+            </div>
+            <div className="bg-white p-6 rounded-xl shadow-lg">
+              <div className="text-green-600 text-3xl mb-2">✅</div>
+              <h3 className="text-gray-600 text-sm">Completed</h3>
+              <p className="text-3xl font-bold text-gray-800">{stats.completedTodos}</p>
+            </div>
+            <div className="bg-white p-6 rounded-xl shadow-lg">
+              <div className="text-orange-600 text-3xl mb-2">⏳</div>
+              <h3 className="text-gray-600 text-sm">Active</h3>
+              <p className="text-3xl font-bold text-gray-800">{stats.activeTodos}</p>
             </div>
           </div>
         )}
 
         {/* Users Tab */}
         {activeTab === 'users' && (
-          <div className="bg-black/30 backdrop-blur-xl rounded-2xl p-6 border border-white/10">
-            <h2 className="text-2xl font-bold text-white mb-6">User Management</h2>
-
+          <div className="bg-white rounded-xl shadow-lg p-6">
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">👥 All Users ({users.length})</h2>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-white/10">
-                    <th className="text-left py-3 px-4 text-white/70 font-medium">Email</th>
-                    <th className="text-left py-3 px-4 text-white/70 font-medium">Name</th>
-                    <th className="text-left py-3 px-4 text-white/70 font-medium">Role</th>
-                    <th className="text-left py-3 px-4 text-white/70 font-medium">Joined</th>
-                    <th className="text-center py-3 px-4 text-white/70 font-medium">Actions</th>
+                  <tr className="border-b">
+                    <th className="text-left p-3 text-gray-600">Email</th>
+                    <th className="text-left p-3 text-gray-600">Name</th>
+                    <th className="text-left p-3 text-gray-600">Role</th>
+                    <th className="text-left p-3 text-gray-600">Joined</th>
+                    <th className="text-left p-3 text-gray-600">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {users.map((user) => (
-                    <tr key={user.id} className="border-b border-white/5 hover:bg-white/5 transition">
-                      <td className="py-4 px-4 text-white text-sm">{user.email}</td>
-                      <td className="py-4 px-4 text-white text-sm">{user.full_name}</td>
-                      <td className="py-4 px-4">
-                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${user.role === 'admin'
-                          ? 'bg-yellow-600/20 text-yellow-400 border border-yellow-600/30'
-                          : 'bg-blue-600/20 text-blue-400 border border-blue-600/30'
-                          }`}>
-                          {user.role === 'admin' ? '👑 Admin' : '👤 User'}
+                    <tr key={user.id} className="border-b hover:bg-gray-50">
+                      <td className="p-3">{user.email}</td>
+                      <td className="p-3">{user.full_name || '-'}</td>
+                      <td className="p-3">
+                        <span className={`px-3 py-1 rounded-full text-sm ${
+                          user.role === 'admin' 
+                            ? 'bg-purple-100 text-purple-700' 
+                            : 'bg-gray-100 text-gray-700'
+                        }`}>
+                          {user.role || 'user'}
                         </span>
                       </td>
-                      <td className="py-4 px-4 text-white/70 text-sm">
-                        {new Date(user.created_at).toLocaleDateString()}
-                      </td>
-                      <td className="py-4 px-4">
-                        <div className="flex gap-2 justify-center">
-                          <button
-                            onClick={() => toggleUserRole(user.id, user.role)}
-                            className={`p-2 rounded-lg transition ${user.role === 'admin'
-                              ? 'bg-red-600/20 hover:bg-red-600/30'
-                              : 'bg-yellow-600/20 hover:bg-yellow-600/30'
-                              }`}
-                            title={user.role === 'admin' ? 'Remove Admin' : 'Make Admin'}
-                          >
-                            {user.role === 'admin' ? (
-                              <Ban className="w-4 h-4 text-red-400" />
-                            ) : (
-                              <Shield className="w-4 h-4 text-yellow-400" />
-                            )}
-                          </button>
-                        </div>
+                      <td className="p-3">{new Date(user.created_at).toLocaleDateString()}</td>
+                      <td className="p-3">
+                        <button
+                          onClick={() => toggleUserRole(user.id, user.role || 'user')}
+                          className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm"
+                        >
+                          {user.role === 'admin' ? 'Remove Admin' : 'Make Admin'}
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -362,63 +287,32 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* All Todos Tab */}
+        {/* Todos Tab */}
         {activeTab === 'todos' && (
-          <div className="bg-black/30 backdrop-blur-xl rounded-2xl p-6 border border-white/10">
-            <h2 className="text-2xl font-bold text-white mb-6">All Todos ({allTodos.length})</h2>
-
-            <div className="space-y-3">
-              {allTodos.map((todo) => (
-                <div
-                  key={todo.id}
-                  className={`bg-white/5 rounded-xl p-4 border transition ${todo.completed ? 'border-green-500/30' : 'border-white/10'
-                    }`}
-                >
-                  <div className="flex justify-between items-start gap-4">
+          <div className="bg-white rounded-xl shadow-lg p-6">
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">📋 All Todos ({todos.length})</h2>
+            <div className="space-y-4">
+              {todos.map((todo) => (
+                <div key={todo.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                  <div className="flex justify-between items-start">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
-                        {todo.completed ? (
-                          <CheckCircle className="w-5 h-5 text-green-400" />
-                        ) : (
-                          <div className="w-5 h-5 rounded-full border-2 border-white/40" />
-                        )}
-                        <p className={`text-white font-medium ${todo.completed ? 'line-through opacity-60' : ''}`}>
-                          {todo.title}
-                        </p>
-                      </div>
-
-                      <div className="flex flex-wrap gap-2 items-center">
-                        <span className="text-xs text-white/60">
-                          👤 {todo.users?.profiles?.[0]?.full_name || todo.users?.email || 'Unknown'}
+                        <span className={`text-2xl ${todo.completed ? '✅' : '⏳'}`}>
+                          {todo.completed ? '✅' : '⏳'}
                         </span>
-
-                        {todo.tags && todo.tags.length > 0 && (
-                          <div className="flex gap-1">
-                            {todo.tags.map((tag) => (
-                              <span
-                                key={tag}
-                                className="text-xs px-2 py-0.5 rounded bg-purple-600/20 text-purple-400 border border-purple-600/30"
-                              >
-                                {tag}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-
-                        {todo.due_date && (
-                          <span className="text-xs text-white/60">
-                            📅 {new Date(todo.due_date).toLocaleDateString()}
-                          </span>
-                        )}
+                        <h3 className="text-lg font-semibold text-gray-800">{todo.title}</h3>
+                      </div>
+                      <p className="text-gray-600 mb-2">{todo.description}</p>
+                      <div className="flex gap-4 text-sm text-gray-500">
+                        <span>👤 {todo.user_email}</span>
+                        <span>📅 {new Date(todo.created_at).toLocaleDateString()}</span>
                       </div>
                     </div>
-
                     <button
-                      onClick={() => deleteUserTodo(todo.id, todo.users?.email || 'user')}
-                      className="p-2 rounded-lg bg-red-600/20 hover:bg-red-600/30 transition"
-                      title="Delete Todo"
+                      onClick={() => deleteTodo(todo.id)}
+                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
                     >
-                      <Trash2 className="w-4 h-4 text-red-400" />
+                      🗑️ Delete
                     </button>
                   </div>
                 </div>
