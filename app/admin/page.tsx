@@ -38,7 +38,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'todos'>('overview');
-  
+
   const router = useRouter();
 
   useEffect(() => {
@@ -47,17 +47,25 @@ export default function AdminPage() {
 
   const checkAdminAccess = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        router.push('/signin');
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        console.log('No user found, redirecting to signin');
+        window.location.href = '/signin';
         return;
       }
 
+      console.log('User email:', user.email); // Debug log
+
+      // Check if user is admin by email
+      const isAdminEmail = ADMIN_EMAILS.includes(user.email || '');
+      console.log('Is admin email?', isAdminEmail); // Debug log
+
+
       // Check if user is admin
-      if (!ADMIN_EMAILS.includes(user.email || '')) {
+      if (!isAdminEmail) {
         alert('⛔ Access Denied: Admin privileges required');
-        router.push('/todos');
+        window.location.href = '/todos';
         return;
       }
 
@@ -68,7 +76,8 @@ export default function AdminPage() {
       ]);
     } catch (error) {
       console.error('Admin check error:', error);
-      router.push('/todos');
+      alert('Error checking admin access');
+      window.location.href = '/todos';
     } finally {
       setLoading(false);
     }
@@ -77,7 +86,7 @@ export default function AdminPage() {
   const fetchAllUsers = async () => {
     try {
       const { data: authUsers } = await supabase.auth.admin.listUsers();
-      
+
       if (!authUsers) return;
 
       const usersWithProfiles = await Promise.all(
@@ -148,7 +157,7 @@ export default function AdminPage() {
 
   const toggleUserRole = async (userId: string, currentRole: string) => {
     const newRole = currentRole === 'admin' ? 'user' : 'admin';
-    
+
     if (!confirm(`Change user role to ${newRole}?`)) return;
 
     try {
@@ -239,11 +248,10 @@ export default function AdminPage() {
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key as any)}
-              className={`px-6 py-3 rounded-xl font-medium transition whitespace-nowrap flex items-center gap-2 ${
-                activeTab === tab.key
-                  ? 'bg-gradient-to-r from-yellow-600 to-orange-600 text-white shadow-lg'
-                  : 'bg-white/10 text-white/60 hover:bg-white/20'
-              }`}
+              className={`px-6 py-3 rounded-xl font-medium transition whitespace-nowrap flex items-center gap-2 ${activeTab === tab.key
+                ? 'bg-gradient-to-r from-yellow-600 to-orange-600 text-white shadow-lg'
+                : 'bg-white/10 text-white/60 hover:bg-white/20'
+                }`}
             >
               {tab.icon}
               {tab.label}
@@ -255,7 +263,7 @@ export default function AdminPage() {
         {activeTab === 'overview' && (
           <div className="bg-black/30 backdrop-blur-xl rounded-2xl p-6 border border-white/10">
             <h2 className="text-2xl font-bold text-white mb-6">System Overview</h2>
-            
+
             <div className="grid gap-6">
               <div className="bg-white/5 rounded-xl p-5 border border-white/10">
                 <h3 className="text-lg font-semibold text-white mb-3">Recent Activity</h3>
@@ -268,9 +276,8 @@ export default function AdminPage() {
                           by {todo.users?.profiles?.[0]?.full_name || todo.users?.email || 'Unknown'}
                         </p>
                       </div>
-                      <span className={`text-xs px-2 py-1 rounded ${
-                        todo.completed ? 'bg-green-600/20 text-green-400' : 'bg-yellow-600/20 text-yellow-400'
-                      }`}>
+                      <span className={`text-xs px-2 py-1 rounded ${todo.completed ? 'bg-green-600/20 text-green-400' : 'bg-yellow-600/20 text-yellow-400'
+                        }`}>
                         {todo.completed ? 'Completed' : 'Active'}
                       </span>
                     </div>
@@ -301,7 +308,7 @@ export default function AdminPage() {
         {activeTab === 'users' && (
           <div className="bg-black/30 backdrop-blur-xl rounded-2xl p-6 border border-white/10">
             <h2 className="text-2xl font-bold text-white mb-6">User Management</h2>
-            
+
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
@@ -319,11 +326,10 @@ export default function AdminPage() {
                       <td className="py-4 px-4 text-white text-sm">{user.email}</td>
                       <td className="py-4 px-4 text-white text-sm">{user.full_name}</td>
                       <td className="py-4 px-4">
-                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                          user.role === 'admin' 
-                            ? 'bg-yellow-600/20 text-yellow-400 border border-yellow-600/30' 
-                            : 'bg-blue-600/20 text-blue-400 border border-blue-600/30'
-                        }`}>
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${user.role === 'admin'
+                          ? 'bg-yellow-600/20 text-yellow-400 border border-yellow-600/30'
+                          : 'bg-blue-600/20 text-blue-400 border border-blue-600/30'
+                          }`}>
                           {user.role === 'admin' ? '👑 Admin' : '👤 User'}
                         </span>
                       </td>
@@ -334,11 +340,10 @@ export default function AdminPage() {
                         <div className="flex gap-2 justify-center">
                           <button
                             onClick={() => toggleUserRole(user.id, user.role)}
-                            className={`p-2 rounded-lg transition ${
-                              user.role === 'admin'
-                                ? 'bg-red-600/20 hover:bg-red-600/30'
-                                : 'bg-yellow-600/20 hover:bg-yellow-600/30'
-                            }`}
+                            className={`p-2 rounded-lg transition ${user.role === 'admin'
+                              ? 'bg-red-600/20 hover:bg-red-600/30'
+                              : 'bg-yellow-600/20 hover:bg-yellow-600/30'
+                              }`}
                             title={user.role === 'admin' ? 'Remove Admin' : 'Make Admin'}
                           >
                             {user.role === 'admin' ? (
@@ -361,14 +366,13 @@ export default function AdminPage() {
         {activeTab === 'todos' && (
           <div className="bg-black/30 backdrop-blur-xl rounded-2xl p-6 border border-white/10">
             <h2 className="text-2xl font-bold text-white mb-6">All Todos ({allTodos.length})</h2>
-            
+
             <div className="space-y-3">
               {allTodos.map((todo) => (
                 <div
                   key={todo.id}
-                  className={`bg-white/5 rounded-xl p-4 border transition ${
-                    todo.completed ? 'border-green-500/30' : 'border-white/10'
-                  }`}
+                  className={`bg-white/5 rounded-xl p-4 border transition ${todo.completed ? 'border-green-500/30' : 'border-white/10'
+                    }`}
                 >
                   <div className="flex justify-between items-start gap-4">
                     <div className="flex-1">
@@ -382,12 +386,12 @@ export default function AdminPage() {
                           {todo.title}
                         </p>
                       </div>
-                      
+
                       <div className="flex flex-wrap gap-2 items-center">
                         <span className="text-xs text-white/60">
                           👤 {todo.users?.profiles?.[0]?.full_name || todo.users?.email || 'Unknown'}
                         </span>
-                        
+
                         {todo.tags && todo.tags.length > 0 && (
                           <div className="flex gap-1">
                             {todo.tags.map((tag) => (
@@ -400,7 +404,7 @@ export default function AdminPage() {
                             ))}
                           </div>
                         )}
-                        
+
                         {todo.due_date && (
                           <span className="text-xs text-white/60">
                             📅 {new Date(todo.due_date).toLocaleDateString()}
@@ -408,7 +412,7 @@ export default function AdminPage() {
                         )}
                       </div>
                     </div>
-                    
+
                     <button
                       onClick={() => deleteUserTodo(todo.id, todo.users?.email || 'user')}
                       className="p-2 rounded-lg bg-red-600/20 hover:bg-red-600/30 transition"
