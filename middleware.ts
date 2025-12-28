@@ -1,4 +1,4 @@
-// middleware.ts (root folder mein – app/ ke bahar)
+// middleware.ts (root folder mein)
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
@@ -23,25 +23,20 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // Get session
   const { data: { session } } = await supabase.auth.getSession()
 
-  // Admin route protection
   if (request.nextUrl.pathname.startsWith('/admin')) {
     if (!session) {
-      // No session → redirect to signin
       return NextResponse.redirect(new URL('/signin', request.url))
     }
 
-    // Get user profile to check role
     const { data: profile } = await supabase
       .from('profiles')
       .select('role')
-      .eq('id', session.user.id)
+      .eq('id', session.user.id)  // id use kar rahe hain (tumhare table mein id hai)
       .single()
 
     if (profile?.role !== 'admin') {
-      // Not admin → redirect to home
       return NextResponse.redirect(new URL('/', request.url))
     }
   }
@@ -50,9 +45,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    '/admin/:path*',
-    // Optional: agar todos bhi protect karna hai to yeh add kar sakte ho
-    // '/todos/:path*',
-  ],
+  matcher: '/admin/:path*',
 }
