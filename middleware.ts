@@ -1,11 +1,17 @@
-// middleware.ts (ROOT folder mein – app/ ke bahar)
+// middleware.ts (root folder mein – app/ ke bahar)
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
-  const response = NextResponse.next()
+  // Response ko modify karne ke liye banaya
+  let response = NextResponse.next({
+    request: {
+      headers: request.headers,
+    },
+  })
 
+  // Supabase client create karo (SSR ke liye)
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -23,6 +29,9 @@ export async function middleware(request: NextRequest) {
     }
   )
 
+  // Session get karo (refresh bhi karega agar zarurat padi)
+  await supabase.auth.getSession()
+
   const { data: { session } } = await supabase.auth.getSession()
 
   // Admin route protection
@@ -34,6 +43,7 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/signin', request.url))
     }
 
+    // Profile fetch karo role check ke liye
     const { data: profile, error } = await supabase
       .from('profiles')
       .select('role')
@@ -50,9 +60,11 @@ export async function middleware(request: NextRequest) {
     console.log('Admin access granted')
   }
 
+  // Normal response return karo
   return response
 }
 
+// Config: sirf /admin routes pe middleware chalega
 export const config = {
-  matcher: '/admin/:path*', // sirf /admin routes protect karega
+  matcher: '/admin/:path*',
 }
