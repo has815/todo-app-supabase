@@ -225,7 +225,7 @@ export default function Home() {
 
           <Link href="/signup">
             <button className="px-12 py-6 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 rounded-2xl text-white font-bold text-2xl shadow-2xl transform hover:scale-105 transition-all">
-              Abhi Shuru Karo – Free!
+              Start Now – Free!
             </button>
           </Link>
 
