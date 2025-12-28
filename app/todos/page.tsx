@@ -24,6 +24,10 @@ interface Profile {
   job_title: string;
   avatar_url?: string;
 }
+const ADMIN_EMAILS = [
+  'hassanahmed12168@gmail.com',
+  // Add more admin emails
+];
 
 const LANGUAGES = [
   { code: 'en', name: 'English', flag: '🇺🇸', voice: 'en-US' },
@@ -48,13 +52,13 @@ export default function TodosPage() {
   const [showTranslateMenu, setShowTranslateMenu] = useState<string | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [tagFilter, setTagFilter] = useState<string | null>(null);
+  const [isUserAdmin, setIsUserAdmin] = useState(false);
 
   // Image states
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [fullImageView, setFullImageView] = useState<string | null>(null);
-  const [isUserAdmin, setIsUserAdmin] = useState(false);
 
   const predefinedTags = [
     { name: 'Work', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
@@ -73,6 +77,7 @@ export default function TodosPage() {
       return;
     }
     setUser(user);
+    setIsUserAdmin(ADMIN_EMAILS.includes(user.email || ''));
   };
 
   // Function to check if user is admin
@@ -197,10 +202,10 @@ export default function TodosPage() {
           prevTodos.map(t =>
             t.id === todoId
               ? {
-                  ...t,
-                  title: translated,
-                  original_title: t.original_title || (targetLang !== 'en' ? todo.title : t.original_title),
-                }
+                ...t,
+                title: translated,
+                original_title: t.original_title || (targetLang !== 'en' ? todo.title : t.original_title),
+              }
               : t
           )
         );
@@ -435,13 +440,8 @@ export default function TodosPage() {
                 </div>
               )}
 
-              {/* Admin Button */}
               {isUserAdmin && (
-                <Link
-                  href="/admin"
-                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-yellow-600/20 to-orange-600/20 hover:from-yellow-600/30 hover:to-orange-600/30 transition flex items-center gap-2 text-yellow-400 border border-yellow-500/20 backdrop-blur-lg shadow-lg flex-shrink-0"
-                  title="Admin Dashboard"
-                >
+                <Link href="/admin" className="px-4 py-2 rounded-xl bg-gradient-to-r from-yellow-600/20 to-orange-600/20 hover:from-yellow-600/30 hover:to-orange-600/30 transition flex items-center gap-2 text-yellow-400 border border-yellow-500/20 backdrop-blur-lg shadow-lg flex-shrink-0">
                   <Shield className="w-4 h-4" />
                   <span className="hidden sm:inline font-medium">Admin</span>
                 </Link>
