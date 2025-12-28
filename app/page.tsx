@@ -230,7 +230,7 @@ export default function Home() {
           </Link>
 
           <footer className="mt-20 text-white/60 text-sm">
-            <p>Made with ❤️ by [Tera Naam]</p>
+            <p>Made with ❤️ by [Haseeb Hassan]</p>
             <p className="mt-2">© {new Date().getFullYear()} Todo App. All rights reserved.</p>
           </footer>
         </div>
